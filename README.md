@@ -7,6 +7,7 @@ Rampai is a writing app for people who want to think more clearly by writing in 
 This repository holds the first **tracer bullet**: a thin, working path through the parts that are hardest to change later.
 
 - A block editor with Word-style shortcuts, Markdown-style shortcuts, and blocks that move with <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>.
+- Outline mode (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>): headings only, and whole sections move with their text.
 - The typed-only rule (paste and drop from outside are refused).
 - A local-first document model on [Loro](https://loro.dev), where each block keeps its identity when it moves.
 - AES-GCM encryption of every update that leaves a device.

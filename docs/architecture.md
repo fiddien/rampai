@@ -51,6 +51,8 @@ Drafts are saved on the device as Loro snapshots (`src/sync/storage.ts`, localSt
 
 **Pairing and keys.** The web build keeps its key in localStorage, which is enough for a demo and not for real use. Pairing will derive the key from the passphrase with a memory-hard KDF and keep it in the platform keychain.
 
-**Next editor features**, in rough order: footnotes (an inline node whose body is its own Loro text), drag handles for blocks, Outline mode (headings only, reorderable), the whiteboard, books, and the AI reader as comments.
+**Outline mode** (`src/editor/outline.ts`, `src/ui/outline.ts`) lists the headings. A section is a heading plus everything under it, up to the next heading of the same or a higher rank, so moving a section carries its subsections. Sections swap only with a sibling of the same level, which keeps a subsection inside its parent. A move is one replace of the two adjacent ranges with their blocks reordered; the blocks keep their ids, so the binding writes it to Loro as block moves and another device's concurrent edit follows the text (`test/outline.test.ts`).
+
+**Next editor features**, in rough order: footnotes (an inline node whose body is its own Loro text), drag handles for blocks, the whiteboard, books, and the AI reader as comments.
 
 **Game progress** syncs as an append-only event log in the same encrypted channel, so streaks and badges agree across devices.

@@ -158,3 +158,27 @@ body.typing .chrome:hover, body.typing .chrome:focus-within { opacity: 1; }
 
 a { color: var(--accent); text-underline-offset: 2px; }
 .brand, .brand:visited { color: var(--soft); }
+
+/* Outline: headings only, with sections that move together with their text */
+.outline {
+  position: fixed; top: 64px; right: max(16px, calc((100vw - 44rem) / 2 - 17rem)); width: 15rem;
+  max-height: calc(100vh - 140px); overflow: auto;
+  font-size: 13px; z-index: 4;
+}
+@media (max-width: 1100px) {
+  .outline { right: 16px; background: var(--bg); border: 1px solid var(--faint); border-radius: 8px; padding: 10px 12px; }
+}
+.outline[hidden] { display: none; }
+.outline-title { color: var(--soft); font-size: 12px; margin-bottom: 6px; }
+.outline ol { list-style: none; margin: 0; padding: 0; }
+.outline-item { display: flex; align-items: center; gap: 2px; }
+.outline-item.level-2 { padding-left: 14px; }
+.outline-name {
+  flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 4px 6px;
+  border-radius: 4px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.outline-item.level-1 .outline-name { font-weight: 500; }
+.outline-name:hover { background: var(--faint); }
+.outline .tool { min-width: 22px; padding: 2px 4px; }
+.outline .tool:disabled { opacity: 0.3; cursor: default; background: none; }
+.outline-empty { color: var(--soft); }
