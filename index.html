@@ -3,6 +3,57 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script>
+      // Stale-page guard. GitHub Pages lets browsers keep index.html for up to
+      // ten minutes, and each deploy replaces the hashed files it points to. A
+      // page from before a deploy then asks for files that are gone. Until the
+      // app has started, a missing file or a failed WASM load reloads the page
+      // once, at a fresh URL so no cache can answer with the old page. A second
+      // failure within a minute shows a message instead of looping.
+      (function () {
+        var started = false;
+        window.__rampaiStarted = function () {
+          started = true;
+          var url = new URL(location.href);
+          if (url.searchParams.has("fresh")) {
+            url.searchParams.delete("fresh");
+            history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+          }
+        };
+        var STALE = /loro-crdt WASM|dynamically imported module|Importing a module script failed|Failed to fetch|Load failed/i;
+        function recover() {
+          if (started) return;
+          started = true;
+          var url = new URL(location.href);
+          var last = Number(url.searchParams.get("fresh"));
+          if (last && Date.now() - last < 60000) {
+            var show = function () {
+              var app = document.getElementById("app");
+              if (app) app.innerHTML = '<p style="max-width:32rem;margin:15vh auto;padding:0 16px;font:16px/1.6 system-ui,sans-serif">Rampai was just updated and could not finish loading. Wait a minute, then <a href="./">reload the page</a>. Your drafts are safe on this device.</p>';
+            };
+            if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", show);
+            else show();
+            return;
+          }
+          url.searchParams.set("fresh", String(Date.now()));
+          location.replace(url.pathname + url.search + url.hash);
+        }
+        window.addEventListener(
+          "error",
+          function (e) {
+            if (started) return;
+            var t = e.target;
+            var resource = t && (t.tagName === "SCRIPT" || (t.tagName === "LINK" && t.rel === "stylesheet"));
+            var local = resource && String(t.src || t.href).indexOf(location.origin) === 0;
+            if (local || (e.message && STALE.test(e.message))) recover();
+          },
+          true,
+        );
+        window.addEventListener("unhandledrejection", function (e) {
+          if (!started && e.reason && STALE.test(String(e.reason.message || e.reason))) recover();
+        });
+      })();
+    </script>
     <title>Rampai</title>
     <meta name="description" content="Rampai: a gentle ramp to clear thinking." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

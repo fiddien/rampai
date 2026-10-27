@@ -21,6 +21,9 @@ import { buildFinish, type FinishPanel } from "./ui/finish";
 import { draftKey, getDraft, updateDraft } from "./sync/library";
 import { getTitle, setTitle, isFinished } from "./sync/meta";
 
+// Every module, the WASM included, has loaded: tell the stale-page guard in index.html.
+(window as Window & { __rampaiStarted?: () => void }).__rampaiStarted?.();
+
 const store = deviceStore();
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", html = ""): HTMLElementTagNameMap[K] {
