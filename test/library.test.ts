@@ -4,10 +4,30 @@ import { DEFAULT_TITLE, getTitle, setTitle } from "../src/sync/meta";
 import { createDoc } from "../src/sync/model";
 
 class MemoryStore {
-  private m = new Map<string, string>();
+  protected m = new Map<string, string>();
   getItem = (k: string) => this.m.get(k) ?? null;
-  setItem = (k: string, v: string) => void this.m.set(k, v);
+  setItem(k: string, v: string): void {
+    this.m.set(k, v);
+  }
   removeItem = (k: string) => void this.m.delete(k);
+  get length() {
+    return this.m.size;
+  }
+  key = (i: number) => Array.from(this.m.keys())[i] ?? null;
+}
+
+class BrokenStore extends MemoryStore {
+  getItem = (): string | null => {
+    throw new Error("blocked");
+  };
+}
+
+class FullStore extends MemoryStore {
+  failWrites = false;
+  override setItem(k: string, v: string): void {
+    if (this.failWrites) throw new Error("quota");
+    this.m.set(k, v);
+  }
 }
 
 describe("library", () => {
@@ -45,10 +65,45 @@ describe("library", () => {
     expect(listDrafts(store)).toHaveLength(1);
   });
 
-  test("a damaged index is treated as empty", () => {
+  test("a damaged index is treated as empty when there are no drafts", () => {
     const store = new MemoryStore();
     store.setItem("rampai:index:v1", "{not json");
     expect(listDrafts(store)).toEqual([]);
+  });
+
+  test("a damaged or missing index is rebuilt from the saved drafts, never overwriting them", () => {
+    const store = new MemoryStore();
+    const a = createDraft(store);
+    store.setItem(draftKey(a.id), "snapshot");
+    store.setItem("rampai:index:v1", "{not json");
+    const b = createDraft(store);
+    expect(listDrafts(store).map((d) => d.id).sort()).toEqual([a.id, b.id].sort());
+    store.removeItem("rampai:index:v1");
+    expect(listDrafts(store).map((d) => d.id)).toContain(a.id);
+  });
+
+  test("storage that throws on read does not break listing", () => {
+    expect(listDrafts(new BrokenStore())).toEqual([]);
+  });
+
+  test("the old draft is not adopted twice, and stays if the index cannot be saved", () => {
+    const full = new FullStore();
+    full.setItem("rampai:draft:v1", "old");
+    full.failWrites = true;
+    expect(listDrafts(full)).toEqual([]);
+    expect(full.getItem("rampai:draft:v1")).toBe("old");
+    full.failWrites = false;
+    expect(listDrafts(full)).toHaveLength(1);
+    // The old key coming back (an old tab still saving) is not adopted again.
+    full.setItem("rampai:draft:v1", "old again");
+    expect(listDrafts(full)).toHaveLength(1);
+  });
+
+  test("updating an unknown draft changes nothing", () => {
+    const store = new MemoryStore();
+    const d = createDraft(store);
+    updateDraft(store, "nope", { words: 9 });
+    expect(listDrafts(store)).toEqual([{ ...d }]);
   });
 });
 

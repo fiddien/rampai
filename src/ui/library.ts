@@ -1,4 +1,4 @@
-import { createDraft, deleteDraft, listDrafts, type DraftEntry } from "../sync/library";
+import { createDraft, deleteDraft, listDrafts, type DraftEntry, type Store } from "../sync/library";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -15,7 +15,7 @@ export function editedLabel(updatedAt: number, now = Date.now()): string {
 }
 
 /** The home screen: every draft saved on this device, and a way to begin a new one. */
-export function libraryPage(root: HTMLElement, store: Storage, open: (id: string) => void) {
+export function libraryPage(root: HTMLElement, store: Store, open: (id: string) => void) {
   const header = el("header", "toolbar");
   const brand = el("a", "brand");
   brand.href = "#/";
@@ -47,6 +47,7 @@ export function libraryPage(root: HTMLElement, store: Storage, open: (id: string
       if (!confirm(`Delete “${d.title}”? It cannot be brought back.`)) return;
       deleteDraft(store, d.id);
       render();
+      start.focus();
     });
     li.append(link, remove);
     return li;
@@ -61,4 +62,6 @@ export function libraryPage(root: HTMLElement, store: Storage, open: (id: string
     }
   }
   render();
+  // Another tab may add, delete or finish a draft.
+  window.addEventListener("storage", (e) => e.key?.startsWith("rampai:") && render());
 }
