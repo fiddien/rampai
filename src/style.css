@@ -200,7 +200,7 @@ a { color: var(--accent); text-underline-offset: 2px; }
 .draft-empty { color: var(--soft); padding: 12px 0; }
 
 /* Finishing: the exit test, and the read-only look of a finished piece */
-.finish { margin: 32px 0 0; padding: 16px 0 0; border-top: 1px solid var(--faint); font-size: 14px; }
+.finish { margin: 0 0 20px; padding: 0 0 14px; border-bottom: 1px solid var(--faint); font-size: 14px; }
 .finish[hidden], .finish [hidden] { display: none; }
 .finish label { display: block; color: var(--soft); margin-bottom: 6px; }
 .finish-input {
@@ -209,8 +209,11 @@ a { color: var(--accent); text-underline-offset: 2px; }
 }
 .finish-check { display: flex !important; align-items: center; gap: 6px; margin: 12px 0; color: var(--ink) !important; }
 .finish .primary:disabled { opacity: 0.35; cursor: default; }
-.finish-note { color: var(--soft); margin: 0 0 6px; }
-.finish-claim { font: italic 1.15rem/1.5 var(--f-write); margin: 0 0 12px; padding-left: 1em; border-left: 2px solid var(--accent); }
+.finish-note { color: var(--soft); margin: 0; white-space: nowrap; }
+/* Once finished, the panel is one quiet line: the date, the claim, and a way back. */
+.finish-done { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.finish-claim { font: italic 1.05rem/1.5 var(--f-write); flex: 1 1 14rem; }
+.finish-claim::before, .finish-claim::after { color: var(--soft); }
 body.finished .ProseMirror { color: var(--soft); }
 .home-sub { font: 500 1rem/1.3 var(--f-ui); color: var(--soft); margin: 28px 0 0; }
 .home-sub + .drafts { margin-top: 8px; }

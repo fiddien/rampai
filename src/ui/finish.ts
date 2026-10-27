@@ -48,7 +48,7 @@ export function buildFinish(doc: LoroDoc, words: () => number, refusePaste: () =
   const done = el("div", "finish-done");
   done.setAttribute("role", "status");
   const doneNote = el("p", "finish-note");
-  const claim = el("blockquote", "finish-claim");
+  const claim = el("q", "finish-claim");
   const back = el("button", "tool", "Reopen as a draft");
   back.type = "button";
   done.append(doneNote, claim, back);
@@ -64,7 +64,7 @@ export function buildFinish(doc: LoroDoc, words: () => number, refusePaste: () =
     if (document.activeElement !== proposition) proposition.value = getProposition(doc);
     finish.disabled = !canFinish(proposition.value, words(), aloud.checked);
     if (finished) {
-      doneNote.textContent = `Finished ${new Date(at).toLocaleDateString(undefined, { month: "long", day: "numeric" })}. This piece says:`;
+      doneNote.textContent = `Finished ${new Date(at).toLocaleDateString(undefined, { month: "long", day: "numeric" })}.`;
       claim.textContent = getProposition(doc);
     }
     if (finished !== state.finished) {

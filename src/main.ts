@@ -168,7 +168,8 @@ async function writingPage(root: HTMLElement, id: string) {
     syncPressed();
   });
   header.append(finishButton);
-  page.append(finish.element);
+  // The panel opens under the title, above the draft; nothing is added below the writing.
+  titleRow.after(finish.element);
 
   // Key hints live in a panel, so nothing sits under the draft but the draft.
   const shortcuts = buildShortcuts();
