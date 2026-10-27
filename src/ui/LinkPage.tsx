@@ -1,15 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Anchor, Button, CopyButton, Group, Text, Textarea } from "@mantine/core";
-import { chunked } from "../sync/chunks";
-import { LibrarySync } from "../sync/librarySync";
-import { encrypted } from "../sync/transport";
-import { tabNotifier } from "../sync/tabs";
 import { joinLink, startLink, type DeviceLink } from "../sync/webrtc";
+import { startSession, useLinkSession, useLinkStatus, type LinkSession } from "../app/linkSession";
 import { useApp } from "../app/context";
 import { NavBar } from "./Nav";
-import { plural } from "./format";
-
-const WRONG_KEY_MS = 6000;
 
 type Step = { kind: "choose" } | { kind: "offer"; offer: string; accept(answer: string): Promise<DeviceLink> } | { kind: "join"; answer?: string } | { kind: "linked" };
 
@@ -46,93 +40,32 @@ function Copy({ value }: { value: string }) {
 /**
  * Link two devices that have the same recovery words. One shows a code, the
  * other pastes it and shows an answer, and the answer is pasted back. Then the
- * two exchange their libraries over a direct connection, sealed with the key.
- * The link lasts while this page is open.
+ * two exchange their libraries over a direct connection, sealed with the key,
+ * and stay linked while the app is open on both: drafts open on either side
+ * receive the other's edits as they are typed.
  */
 export function LinkPage() {
   const { store, device } = useApp();
+  const current = useLinkSession();
+  // The session this page started stays on screen after it ends, to say how it ended.
+  const [mine, setMine] = useState<LinkSession | null>(null);
+  const session = current ?? mine;
+  const status = useLinkStatus(session);
   const [step, setStep] = useState<Step>({ kind: "choose" });
-  const [status, setStatus] = useState("");
+  const [message, setMessage] = useState("");
   const [answerIn, setAnswerIn] = useState("");
   const [offerIn, setOfferIn] = useState("");
   const [busy, setBusy] = useState(false);
-  const live = useRef<{ close(): void } | null>(null);
-
-  // Leaving the page ends the link.
-  useEffect(() => () => live.current?.close(), []);
 
   if (!device) return null;
   const key = device.key;
-  const fail = (e: unknown) => setStatus(e instanceof Error ? e.message : "Something went wrong. Try again.");
-
-  function linked(link: DeviceLink) {
+  const fail = (e: unknown) => setMessage(e instanceof Error ? e.message : "Something went wrong. Try again.");
+  const linked = (link: DeviceLink) => {
+    setMine(startSession(store, key, link));
     setStep({ kind: "linked" });
-    setStatus("Linked. Looking for drafts to exchange…");
-    let accepted = false;
-    let settled = false;
-    const n = { received: 0, created: 0, deleted: 0, unsaved: 0 };
-    const summary = () => {
-      const parts: string[] = [];
-      if (n.received) parts.push(`${plural(n.received, "update", "updates")} received (${plural(n.created, "new draft", "new drafts")})`);
-      if (n.deleted) parts.push(`${plural(n.deleted, "draft", "drafts")} deleted here, as on the other device`);
-      if (n.unsaved) parts.push(`${plural(n.unsaved, "draft", "drafts")} could not be saved, because this device's storage is full`);
-      return parts.length ? `Up to date. ${parts.join("; ")}.` : "Linked. Both devices already have the same drafts.";
-    };
-    const report = () => setStatus(settled ? summary() : `Receiving… ${plural(n.received, "update", "updates")} so far.`);
-    const wrong = setTimeout(() => {
-      if (!accepted) setStatus("These devices were made with different recovery words, so nothing can be shared. Check the words on both.");
-    }, WRONG_KEY_MS);
-    const tabs = tabNotifier(key);
-    const sync = new LibrarySync(
-      store,
-      encrypted(chunked(link.transport), key),
-      {
-        onActivity() {
-          accepted = true;
-          clearTimeout(wrong);
-        },
-        onUpdate(_id, isNew) {
-          n.received += 1;
-          if (isNew) n.created += 1;
-          report();
-        },
-        onDeleted() {
-          n.deleted += 1;
-          report();
-        },
-        onStorageFull() {
-          n.unsaved += 1;
-          report();
-        },
-        // Every request has been answered: the libraries are level.
-        onSettled() {
-          settled = true;
-          report();
-        },
-      },
-      // A draft open in another tab of this browser hears about it too, so that tab's next save does not overwrite it.
-      (id, update) => tabs.send(id, update),
-    );
-    let closed = false;
-    const end = () => {
-      if (closed) return;
-      closed = true;
-      clearTimeout(wrong);
-      sync.stop();
-      tabs.close();
-    };
-    link.onClosed(() => {
-      end();
-      setStatus("The link has closed. Your drafts are saved on this device.");
-    });
-    live.current = {
-      close() {
-        end();
-        link.close();
-      },
-    };
-    sync.start();
-  }
+    setMessage("");
+  };
+  const isLinked = !!current && status.state === "linked";
 
   return (
     <>
@@ -149,17 +82,34 @@ export function LinkPage() {
           </p>
         ) : (
           <>
-            {step.kind === "choose" && (
+            {isLinked && (
+              <Group className="actions">
+                <Button component="a" href="#/">
+                  Back to my drafts
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    // Keep showing this session, so the page says it has ended.
+                    setMine(current);
+                    current?.close();
+                  }}
+                >
+                  Unlink
+                </Button>
+              </Group>
+            )}
+            {!isLinked && (step.kind === "choose" || step.kind === "linked") && (
               <Group className="actions">
                 <Button
                   loading={busy}
                   onClick={async () => {
                     setBusy(true);
-                    setStatus("Making a code…");
+                    setMessage("Making a code…");
                     try {
                       const started = await startLink();
                       setStep({ kind: "offer", offer: started.offer, accept: started.accept });
-                      setStatus("Waiting for the answer code.");
+                      setMessage("Waiting for the answer code.");
                     } catch (e) {
                       fail(e);
                     } finally {
@@ -174,7 +124,7 @@ export function LinkPage() {
                 </Button>
               </Group>
             )}
-            {step.kind === "offer" && (
+            {!isLinked && step.kind === "offer" && (
               <div className="link-steps">
                 <CodeBox label="1. Copy this code to the other device" value={step.offer} readOnly />
                 <Copy value={step.offer} />
@@ -183,7 +133,7 @@ export function LinkPage() {
                   loading={busy}
                   onClick={async () => {
                     setBusy(true);
-                    setStatus("Connecting…");
+                    setMessage("Connecting…");
                     try {
                       linked(await step.accept(answerIn));
                     } catch (e) {
@@ -197,7 +147,7 @@ export function LinkPage() {
                 </Button>
               </div>
             )}
-            {step.kind === "join" && (
+            {!isLinked && step.kind === "join" && (
               <div className="link-steps">
                 <CodeBox label="1. Paste the code from the other device" value={offerIn} onChange={setOfferIn} readOnly={!!step.answer} />
                 {!step.answer ? (
@@ -205,11 +155,11 @@ export function LinkPage() {
                     loading={busy}
                     onClick={async () => {
                       setBusy(true);
-                      setStatus("Making an answer code…");
+                      setMessage("Making an answer code…");
                       try {
                         const joined = await joinLink(offerIn);
                         setStep({ kind: "join", answer: joined.answer });
-                        setStatus("Waiting for the other device to connect…");
+                        setMessage("Waiting for the other device to connect…");
                         setBusy(false);
                         linked(await joined.connected);
                       } catch (e) {
@@ -228,15 +178,8 @@ export function LinkPage() {
                 )}
               </div>
             )}
-            {step.kind === "linked" && (
-              <div className="link-steps">
-                <Button component="a" href="#/">
-                  Back to my drafts
-                </Button>
-              </div>
-            )}
             <p className="link-status" role="status">
-              {status}
+              {message || status.text}
             </p>
             <Text className="soft">
               Want to see how it works first? <Anchor href="#two-devices">Watch two simulated devices sync</Anchor>.

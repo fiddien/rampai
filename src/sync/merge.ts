@@ -9,7 +9,7 @@ import type { LoroDoc } from "loro-crdt";
  * Bringing a draft's changes into this device's library, from another device
  * or from a backup. Both go through here, so they follow the same rules.
  */
-export type MergeResult = "created" | "merged" | "unchanged" | "kept-deleted" | "storage-full" | "invalid";
+export type MergeResult = "created" | "merged" | "unchanged" | "pending" | "kept-deleted" | "storage-full" | "invalid";
 
 /** True when `mine` holds nothing beyond `theirs`: equal, or strictly behind. */
 export const coveredBy = (mine: VersionVector, theirs: VersionVector) => {
@@ -43,6 +43,8 @@ export function loadDraft(store: Store, id: string): LoroDoc | undefined {
  * Merge `update` (a Loro update or snapshot) into draft `id`.
  *
  * - Nothing new: the saved draft and its "edited" time are left alone.
+ * - "pending": the update depends on changes this device has not seen, so
+ *   nothing could be applied yet; the caller asks for what is missing.
  * - Deleted here: it stays deleted unless the update holds writing this device
  *   never saw, or `restore` is set (the writer chose to bring it back).
  * - The draft is saved before it is listed, so the home screen never lists a
@@ -52,12 +54,14 @@ export function mergeDraft(store: Store, id: string, update: Uint8Array, opts: {
   const existing = loadDraft(store, id);
   const doc = existing ?? createDoc();
   const before = existing?.oplogVersion();
+  let pending = false;
   try {
-    doc.import(update);
+    pending = !!doc.import(update).pending;
   } catch {
     return "invalid";
   }
-  if (before && coveredBy(doc.oplogVersion(), before)) return "unchanged";
+  const after = doc.oplogVersion();
+  if (before ? coveredBy(after, before) : after.length() === 0) return pending ? "pending" : "unchanged";
 
   const tombstone = listTombstones(store)[id];
   if (!existing && tombstone && !opts.restore) {

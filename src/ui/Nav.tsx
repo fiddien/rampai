@@ -1,5 +1,6 @@
 import { Anchor } from "@mantine/core";
 import type { ReactNode } from "react";
+import { useLinkSession, useLinkStatus } from "../app/linkSession";
 
 export type NavItem = "drafts" | "link" | "backup" | "words";
 
@@ -16,6 +17,7 @@ const ITEMS: { id: NavItem; label: string; href: string }[] = [
  * a small dot on Recovery words says this device has none yet.
  */
 export function NavBar({ active, wordsMissing }: { active?: NavItem; wordsMissing?: boolean }) {
+  const linked = useLinkStatus(useLinkSession()).state === "linked";
   return (
     <header className="toolbar nav">
       <a className="brand" href="#/">
@@ -25,6 +27,12 @@ export function NavBar({ active, wordsMissing }: { active?: NavItem; wordsMissin
         {ITEMS.map((item) => (
           <Anchor key={item.id} className="nav-link" href={item.href} underline="never" aria-current={item.id === active ? "page" : undefined}>
             {item.label}
+            {item.id === "link" && linked && (
+              <>
+                <span className="nav-dot linked" />
+                <span className="visually-hidden"> (linked now)</span>
+              </>
+            )}
             {item.id === "words" && wordsMissing && (
               <>
                 <span className="nav-dot" />

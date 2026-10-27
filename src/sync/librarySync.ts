@@ -2,6 +2,7 @@ import { VersionVector, type LoroDoc } from "loro-crdt";
 import { addTombstone, deleteDraft, listDrafts, listTombstones, type Store } from "./library";
 import { coveredBy, decodeVersion, loadDraft, mergeDraft } from "./merge";
 import type { Transport } from "./transport";
+import type { DocBinding } from "./binding";
 
 /**
  * Brings two devices' libraries level over one transport. Both sides do the
@@ -19,6 +20,12 @@ import type { Transport } from "./transport";
  * side lists a draft it has never seen, it says hello with nothing, and so
  * receives the whole draft. Drafts merge with Loro, so edits made on both sides
  * since they last met come together without losing either.
+ *
+ * While linked, a draft open in an editor is "attached": its edits go to the
+ * other device as they are typed, and the other device's edits go straight
+ * into the editor. An edit that arrives before something it depends on is
+ * held by Loro as pending, and the receiver says hello for that draft, so the
+ * sender answers with exactly what is missing, from its live document.
  *
  * Deleting follows one rule: a deletion wins, unless the other device holds
  * writing in that draft which the deleting device never saw. Then the draft
@@ -94,6 +101,8 @@ export class LibrarySync {
   private stopListening: () => void = () => {};
   /** Drafts this side has said hello for and not yet heard back about. */
   private waiting = new Set<string>();
+  /** Drafts open in an editor on this device, by id. */
+  private attached = new Map<string, DocBinding>();
   private theirIndexSeen = false;
   private settled = false;
 
@@ -117,8 +126,25 @@ export class LibrarySync {
     this.stopListening();
   }
 
+  /**
+   * Follow a draft that is open in an editor: send its edits as they are made,
+   * and apply the other device's edits to it directly. Returns a function that
+   * stops following it.
+   */
+  attach(id: string, binding: DocBinding): () => void {
+    this.attached.set(id, binding);
+    const unsubscribe = binding.doc.subscribeLocalUpdates((update) => this.transport.send(frame(UPDATE, id, update)));
+    // Catch up on anything written there since the libraries were levelled.
+    this.transport.send(frame(HELLO, id, binding.doc.oplogVersion().encode()));
+    return () => {
+      unsubscribe();
+      if (this.attached.get(id) === binding) this.attached.delete(id);
+    };
+  }
+
+  /** The freshest copy of a draft: the open editor's, else the saved one. */
   private load(id: string): LoroDoc | undefined {
-    return loadDraft(this.store, id);
+    return this.attached.get(id)?.doc ?? loadDraft(this.store, id);
   }
 
   private hello(id: string, version?: VersionVector): void {
@@ -218,7 +244,28 @@ export class LibrarySync {
   }
 
   private receiveUpdate(id: string, body: Uint8Array): void {
+    const live = this.attached.get(id);
+    if (live) {
+      // The editor applies it and saves it; it only has to be asked for what it still lacks.
+      const before = live.doc.oplogVersion();
+      let pending = false;
+      try {
+        pending = !!live.receive(body).pending;
+      } catch {
+        return this.answered(id);
+      }
+      if (pending) this.transport.send(frame(HELLO, id, live.doc.oplogVersion().encode()));
+      if (!coveredBy(live.doc.oplogVersion(), before)) {
+        this.onSaved(id, body);
+        this.hooks.onUpdate?.(id, false);
+      }
+      return this.answered(id);
+    }
     const result = mergeDraft(this.store, id, body);
+    if (result === "pending") {
+      // Ask for this draft from what is saved here, so the answer covers the gap.
+      this.transport.send(frame(HELLO, id, (loadDraft(this.store, id)?.oplogVersion() ?? new VersionVector(null)).encode()));
+    }
     if (result === "storage-full") this.hooks.onStorageFull?.(id);
     if (result === "created" || result === "merged") {
       this.onSaved(id, body);
