@@ -10,6 +10,8 @@ export interface DraftEntry {
   title: string;
   words: number;
   updatedAt: number;
+  /** Missing in entries saved before finishing existed, which means not finished. */
+  finished?: boolean;
 }
 
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -79,4 +81,9 @@ export function updateDraft(store: Store, id: string, patch: Partial<Omit<DraftE
 export function deleteDraft(store: Store, id: string): void {
   write(store, listDrafts(store).filter((d) => d.id !== id));
   store.removeItem(draftKey(id));
+}
+
+/** The home screen shows pieces still being written apart from finished ones. */
+export function partitionDrafts(entries: DraftEntry[]): { inProgress: DraftEntry[]; finished: DraftEntry[] } {
+  return { inProgress: entries.filter((d) => !d.finished), finished: entries.filter((d) => d.finished) };
 }

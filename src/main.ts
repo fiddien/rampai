@@ -13,8 +13,9 @@ import { loadSnapshot, autosave } from "./sync/storage";
 import { buildToolbar, wordCount, MOD, ALT } from "./ui/toolbar";
 import { buildOutline } from "./ui/outline";
 import { libraryPage } from "./ui/library";
+import { buildFinish } from "./ui/finish";
 import { draftKey, getDraft, updateDraft } from "./sync/library";
-import { getTitle, setTitle } from "./sync/meta";
+import { getTitle, setTitle, isFinished } from "./sync/meta";
 
 const KEY_KEY = "rampai:key:v1";
 
@@ -154,21 +155,41 @@ async function writingPage(root: HTMLElement, id: string) {
     }
   });
   root.append(outline.element);
+
+  // Finishing: say what the piece claims and read it aloud. A finished piece is read-only until reopened.
+  const finishButton = el("button", "tool", "Finish");
+  finishButton.type = "button";
+  finishButton.title = "Say what this piece claims, and mark it finished";
+  finishButton.setAttribute("aria-pressed", "false");
+  const finish = buildFinish(doc, () => (view ? wordCount(view.state) : 0), refusePaste, (finished) => {
+    finishButton.textContent = finished ? "Finished" : "Finish";
+    view?.setProps({ editable: () => !finished });
+    title.readOnly = finished;
+    document.body.classList.toggle("finished", finished);
+  });
+  finishButton.addEventListener("click", () => {
+    finish.toggle();
+    finishButton.setAttribute("aria-pressed", String(finish.open));
+  });
+  header.append(finishButton);
+  page.append(finish.element);
   const update = () => {
     if (!view) return;
     outline.update();
+    finish.update();
     toolbar.update(view.state);
     const n = wordCount(view.state);
     words.textContent = `${n} ${n === 1 ? "word" : "words"}`;
   };
   const mounted = mountEditor(surface, doc, undefined, update);
   view = mounted.view;
+  view.setProps({ editable: () => !isFinished(doc) });
   update();
 
   autosave(doc, DRAFT_KEY, () => {
     status.textContent = "Saved on this device";
     status.classList.add("ok");
-    updateDraft(localStorage, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now() });
+    updateDraft(localStorage, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now(), finished: isFinished(doc) });
   });
   // Other tabs of this browser are other replicas of the same draft.
   if ("BroadcastChannel" in window) {
