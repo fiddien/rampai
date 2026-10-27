@@ -360,7 +360,7 @@ async function route() {
   const persists = storagePersists();
   if (!device && persists) return go("#/welcome");
 
-  if (hash === "#/link") return device ? linkPage(root, store, device.key, device.source, go) : go("#/");
+  if (hash === "#/link") return device ? linkPage(root, store, device.key, device.source) : go("#/");
 
   const draftId = /^#\/draft\/([\w-]+)$/.exec(hash)?.[1];
   if (draftId && getDraft(store, draftId)) return void writingPage(root, draftId);

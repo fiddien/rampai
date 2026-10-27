@@ -6,7 +6,6 @@ import type { Store } from "../sync/library";
 import { BroadcastChannelTransport, encrypted, type Transport } from "../sync/transport";
 import { joinLink, startLink, type DeviceLink } from "../sync/webrtc";
 
-const IDLE_MS = 1500;
 const WRONG_KEY_MS = 6000;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
@@ -43,7 +42,7 @@ async function copy(box: HTMLTextAreaElement): Promise<boolean> {
  * two exchange their libraries over a direct connection, sealed with the key.
  * The link lasts while this page is open.
  */
-export function linkPage(root: HTMLElement, store: Store, key: CryptoKey, source: KeySource, go: (hash: string) => void) {
+export function linkPage(root: HTMLElement, store: Store, key: CryptoKey, source: KeySource) {
   const header = el("header", "toolbar");
   const brand = el("a", "brand");
   brand.innerHTML = "<b>Rampai</b> · ‹ Drafts";
@@ -77,16 +76,26 @@ export function linkPage(root: HTMLElement, store: Store, key: CryptoKey, source
   const fail = (e: unknown) => say(e instanceof Error ? e.message : "Something went wrong. Try again.");
 
   // ——— After the connection opens ———
-  const tabChannels = new Map<string, Transport>();
+  const tabChannels = new Map<string, { raw: BroadcastChannelTransport; sealed: Transport }>();
   async function linked(link: DeviceLink) {
     choose.hidden = true;
     steps.replaceChildren();
     say("Linked. Looking for drafts to exchange…");
     let accepted = false;
+    let settled = false;
     let received = 0;
     let created = 0;
-    let idle: ReturnType<typeof setTimeout> | undefined;
-    const settle = () => say(received === 0 ? "Linked. Both devices already have the same drafts." : `Up to date. ${received} ${received === 1 ? "update" : "updates"} received (${created} new ${created === 1 ? "draft" : "drafts"}).`);
+    let deleted = 0;
+    let unsaved = 0;
+    const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    const summary = () => {
+      const parts: string[] = [];
+      if (received) parts.push(`${plural(received, "update", "updates")} received (${plural(created, "new draft", "new drafts")})`);
+      if (deleted) parts.push(`${plural(deleted, "draft", "drafts")} deleted here, as on the other device`);
+      if (unsaved) parts.push(`${plural(unsaved, "draft", "drafts")} could not be saved, because this device's storage is full`);
+      return parts.length ? `Up to date. ${parts.join("; ")}.` : "Linked. Both devices already have the same drafts.";
+    };
+    const report = () => say(settled ? summary() : `Receiving… ${plural(received, "update", "updates")} so far.`);
     const wrong = setTimeout(() => {
       if (!accepted) say("These devices were made with different recovery words, so nothing can be shared. Check the words on both.");
     }, WRONG_KEY_MS);
@@ -99,32 +108,50 @@ export function linkPage(root: HTMLElement, store: Store, key: CryptoKey, source
         onActivity() {
           accepted = true;
           clearTimeout(wrong);
-          clearTimeout(idle);
-          idle = setTimeout(settle, IDLE_MS);
         },
         onUpdate(_id, isNew) {
           received += 1;
           if (isNew) created += 1;
-          say(`Receiving… ${received} ${received === 1 ? "update" : "updates"} so far.`);
+          report();
+        },
+        onDeleted() {
+          deleted += 1;
+          report();
+        },
+        onStorageFull() {
+          unsaved += 1;
+          report();
+        },
+        // Every request has been answered: the libraries are level.
+        onSettled() {
+          settled = true;
+          report();
         },
       },
       // A draft open in another tab of this browser hears about it too, so that tab's next save does not overwrite it.
       (id, update) => {
         let tab = tabChannels.get(id);
-        if (!tab) tabChannels.set(id, (tab = encrypted(new BroadcastChannelTransport(`rampai:draft:${id}`), key)));
-        sendUpdate(tab, update);
+        if (!tab) {
+          const raw = new BroadcastChannelTransport(`rampai:draft:${id}`);
+          tabChannels.set(id, (tab = { raw, sealed: encrypted(raw, key) }));
+        }
+        sendUpdate(tab.sealed, update);
       },
     );
     link.onClosed(() => {
       clearTimeout(wrong);
       sync.stop();
+      // Let pending sends to other tabs go out, then close their channels.
+      setTimeout(() => {
+        tabChannels.forEach((t) => t.raw.close());
+        tabChannels.clear();
+      }, 1000);
       say("The link has closed. Your drafts are saved on this device.");
     });
     sync.start();
     const done = el("a", "primary", "Back to my drafts");
     (done as HTMLAnchorElement).href = "#/";
     steps.append(done);
-    void go;
   }
 
   // ——— Device A shows a code ———

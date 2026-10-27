@@ -41,6 +41,9 @@ export class BroadcastChannelTransport implements Transport {
   onMessage(listener: Listener) {
     return this.listeners.add(listener);
   }
+  close() {
+    this.channel.close();
+  }
 }
 
 /**
