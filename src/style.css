@@ -246,3 +246,13 @@ body.finished .ProseMirror { color: var(--soft); }
   border: 1px solid var(--faint); border-radius: 6px; padding: 8px 10px;
 }
 .form-message { min-height: 1.4em; margin: 0; color: var(--ink); font-size: 13px; }
+
+/* Linking devices */
+.link-steps { display: grid; gap: 14px; max-width: 36rem; margin: 16px 0; justify-items: start; }
+.code-box { display: grid; gap: 4px; width: 100%; color: var(--soft); font-size: 13px; }
+.code-box textarea {
+  font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--ink); background: none;
+  border: 1px solid var(--faint); border-radius: 6px; padding: 8px 10px; resize: vertical; overflow-wrap: anywhere;
+}
+.link-status { min-height: 1.5em; color: var(--ink); font-size: 14px; }
+a.primary { display: inline-block; text-decoration: none; }

@@ -1,4 +1,5 @@
 import { DEFAULT_TITLE } from "./meta";
+import { toBase64 } from "./storage";
 
 /**
  * The library is a small index of the drafts saved on this device: just enough
@@ -112,6 +113,13 @@ export function createDraft(store: Store, now = Date.now()): DraftEntry {
   return entry;
 }
 
+/** List a draft that arrived from another device under the id it already has. */
+export function adoptDraft(store: Store, entry: DraftEntry): void {
+  const entries = listDrafts(store);
+  if (entries.some((d) => d.id === entry.id)) return;
+  write(store, [...entries, entry]);
+}
+
 export function updateDraft(store: Store, id: string, patch: Partial<Omit<DraftEntry, "id">>): void {
   const entries = listDrafts(store);
   const i = entries.findIndex((d) => d.id === id);
@@ -120,7 +128,14 @@ export function updateDraft(store: Store, id: string, patch: Partial<Omit<DraftE
   write(store, entries);
 }
 
-export function deleteDraft(store: Store, id: string): void {
+/**
+ * Delete a draft from this device. A tombstone remembers that it was deleted,
+ * and how far its writing had got (`version`, a Loro version vector), so a
+ * linked device can delete its copy too, unless it holds writing this device
+ * never saw.
+ */
+export function deleteDraft(store: Store, id: string, version?: Uint8Array, now = Date.now()): void {
+  addTombstone(store, id, version, now);
   write(store, listDrafts(store).filter((d) => d.id !== id));
   try {
     store.removeItem(draftKey(id));
@@ -132,4 +147,42 @@ export function deleteDraft(store: Store, id: string): void {
 /** The home screen shows pieces still being written apart from finished ones. */
 export function partitionDrafts(entries: DraftEntry[]): { inProgress: DraftEntry[]; finished: DraftEntry[] } {
   return { inProgress: entries.filter((d) => !d.finished), finished: entries.filter((d) => d.finished) };
+}
+
+// ——— Tombstones: drafts deleted on this device ———
+
+const DELETED_KEY = "rampai:deleted:v1";
+
+export interface Tombstone {
+  at: number;
+  /** The draft's version vector when it was deleted, base64. Missing if it had never been saved. */
+  version?: string;
+}
+
+export function listTombstones(store: Store): Record<string, Tombstone> {
+  try {
+    const parsed: unknown = JSON.parse(get(store, DELETED_KEY) ?? "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, Tombstone>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeTombstones(store: Store, all: Record<string, Tombstone>) {
+  try {
+    store.setItem(DELETED_KEY, JSON.stringify(all));
+  } catch {
+    // Storage is full or blocked; the draft may come back on the next link.
+  }
+}
+
+export function addTombstone(store: Store, id: string, version?: Uint8Array, now = Date.now()): void {
+  writeTombstones(store, { ...listTombstones(store), [id]: { at: now, ...(version ? { version: toBase64(version) } : {}) } });
+}
+
+export function removeTombstone(store: Store, id: string): void {
+  const all = listTombstones(store);
+  if (!(id in all)) return;
+  delete all[id];
+  writeTombstones(store, all);
 }

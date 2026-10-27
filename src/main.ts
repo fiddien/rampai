@@ -13,6 +13,7 @@ import { loadSnapshot, autosave, deviceStore, storagePersists } from "./sync/sto
 import { typedOnlyField } from "./ui/typedOnlyInput";
 import { welcomePage, recoveryPage, confirmPage, pairPage } from "./ui/onboarding";
 import { loadDeviceKey } from "./sync/keys";
+import { linkPage } from "./ui/link";
 import { buildToolbar, wordCount, MOD, ALT } from "./ui/toolbar";
 import { buildOutline } from "./ui/outline";
 import { libraryPage } from "./ui/library";
@@ -359,6 +360,8 @@ async function route() {
   const persists = storagePersists();
   if (!device && persists) return go("#/welcome");
 
+  if (hash === "#/link") return device ? linkPage(root, store, device.key, device.source) : go("#/");
+
   const draftId = /^#\/draft\/([\w-]+)$/.exec(hash)?.[1];
   if (draftId && getDraft(store, draftId)) return void writingPage(root, draftId);
   libraryPage(root, store, (newId) => go(`#/draft/${newId}`));
@@ -366,8 +369,14 @@ async function route() {
     const warn = el("p", "keys", "This browser is not keeping anything Rampai saves, so your drafts will be lost when you close this tab. Allow site storage for Rampai to keep them.");
     warn.setAttribute("role", "alert");
     root.append(warn);
-  } else if (device?.source === "random") {
-    const note = el("p", "keys", 'This device is not linked to your others yet. <a href="#/welcome">Make recovery words</a> to link them.');
+  } else {
+    const note = el(
+      "p",
+      "keys",
+      device?.source === "passphrase"
+        ? 'Have another device with the same recovery words? <a href="#/link">Link it</a> to share your drafts.'
+        : 'This device is not linked to your others yet. <a href="#/welcome">Make recovery words</a> to link them.',
+    );
     root.append(note);
   }
 }

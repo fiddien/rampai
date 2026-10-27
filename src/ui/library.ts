@@ -1,4 +1,5 @@
 import { createDraft, deleteDraft, listDrafts, partitionDrafts, type DraftEntry, type Store } from "../sync/library";
+import { draftVersion } from "../sync/librarySync";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -52,8 +53,8 @@ export function libraryPage(root: HTMLElement, store: Store, open: (id: string) 
     remove.type = "button";
     remove.setAttribute("aria-label", `Delete “${d.title}”`);
     remove.addEventListener("click", () => {
-      if (!confirm(`Delete “${d.title}”? It cannot be brought back.`)) return;
-      deleteDraft(store, d.id);
+      if (!confirm(`Delete “${d.title}”? It cannot be brought back. Linked devices delete it too when they next link, unless one of them has newer writing in it.`)) return;
+      deleteDraft(store, d.id, draftVersion(store, d.id));
       render();
       start.focus();
     });

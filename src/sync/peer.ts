@@ -12,6 +12,11 @@ function frame(kind: number, body: Uint8Array): Uint8Array {
   return out;
 }
 
+/** Send one Loro update to the other replicas on a transport (for example, the tabs of this browser). */
+export function sendUpdate(transport: Transport, update: Uint8Array): void {
+  transport.send(frame(UPDATE, update));
+}
+
 /**
  * Connects a bound document to a transport.
  *

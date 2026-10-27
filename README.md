@@ -11,6 +11,7 @@ This repository holds the first **tracer bullet**: a thin, working path through 
 - Finishing a piece: say in one sentence what it claims and confirm a read-aloud; the piece is then listed as finished and read-only until reopened.
 - Recovery words: a seven-word passphrase makes the key that keeps drafts private. A second device types the words and gets the same key. Setup is skippable.
 - Drag handles in the margin move a block with a mouse or a finger.
+- Link a device: two devices with the same recovery words swap a code each, then exchange every draft directly over WebRTC on the local network, sealed with the key.
 - Outline mode (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>): headings only, and whole sections move with their text.
 - The typed-only rule (paste and drop from outside are refused).
 - A local-first document model on [Loro](https://loro.dev), where each block keeps its identity when it moves.

@@ -3,6 +3,7 @@ import type { Node, Mark } from "prosemirror-model";
 import { schema, MARK_KEYS, KEY_MARKS, BLOCK_TYPES, type BlockType } from "../editor/schema";
 import { newBlockId } from "../editor/blockIds";
 import { planOrder } from "./order";
+import { countWords } from "../editor/words";
 
 /**
  * How a draft lives in Loro:
@@ -166,4 +167,15 @@ export function readDocFromLoro(doc: LoroDoc): Node {
   }
   if (blocks.length === 0) blocks.push(schema.node("paragraph", { id: newBlockId() }));
   return schema.node("doc", null, blocks);
+}
+
+/** The word count of a draft, read from its document without an editor. */
+export function wordsOf(doc: LoroDoc): number {
+  const list = blocksOf(doc);
+  const parts: string[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const text = (list.get(i) as LoroMap).get("text") as LoroText | undefined;
+    if (text) parts.push(text.toString());
+  }
+  return countWords(parts.join(" "));
 }
