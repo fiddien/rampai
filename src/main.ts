@@ -11,6 +11,7 @@ import { BroadcastChannelTransport, MemoryLink, encrypted, type Transport } from
 import { generateKey, exportKey, importKey } from "./sync/crypto";
 import { loadSnapshot, autosave } from "./sync/storage";
 import { buildToolbar, wordCount, MOD, ALT } from "./ui/toolbar";
+import { buildOutline } from "./ui/outline";
 
 const DRAFT_KEY = "rampai:draft:v1";
 const KEY_KEY = "rampai:key:v1";
@@ -93,6 +94,7 @@ async function writingPage(root: HTMLElement) {
       "keys chrome",
       `Type <kbd>#</kbd> for a heading, <kbd>&gt;</kbd> for a quote, <kbd>-</kbd> for a list, then a space. ` +
         `<kbd>${ALT}</kbd> <kbd>↑</kbd> <kbd>↓</kbd> moves the block you're in. ` +
+        `<kbd>${MOD}</kbd> <kbd>Shift</kbd> <kbd>O</kbd> opens the outline, where whole sections move. ` +
         `<kbd>${MOD}</kbd> <kbd>B</kbd> and <kbd>${MOD}</kbd> <kbd>I</kbd> for bold and italic. ` +
         `Pasting is switched off on purpose. <a href="#two-devices">See two devices sync</a>.`,
     ),
@@ -108,8 +110,27 @@ async function writingPage(root: HTMLElement) {
   let view!: EditorView;
   const toolbar = buildToolbar(() => view);
   header.append(toolbar.element);
+  const outline = buildOutline(() => view);
+  const outlineButton = el("button", "tool", "Outline");
+  outlineButton.type = "button";
+  outlineButton.title = `Show only the headings, and move whole sections (${MOD}+Shift+O)`;
+  outlineButton.setAttribute("aria-pressed", "false");
+  const toggleOutline = () => {
+    outline.toggle();
+    outlineButton.setAttribute("aria-pressed", String(!outline.element.hidden));
+  };
+  outlineButton.addEventListener("click", toggleOutline);
+  header.append(outlineButton);
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "o") {
+      e.preventDefault();
+      toggleOutline();
+    }
+  });
+  root.append(outline.element);
   const update = () => {
     if (!view) return;
+    outline.update();
     toolbar.update(view.state);
     const n = wordCount(view.state);
     words.textContent = `${n} ${n === 1 ? "word" : "words"}`;
