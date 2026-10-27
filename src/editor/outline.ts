@@ -47,12 +47,19 @@ export function siblingOf(sections: Section[], section: Section, dir: -1 | 1): S
 
 /** Swap a section with its neighbour (up is -1, down is +1), carrying its body along. */
 export function moveSection(sectionIndex: number, dir: -1 | 1): Command {
-  return (state, dispatch) => {
+  return (state, dispatch, view) => {
+    // A finished or otherwise locked draft stays as it is.
+    if (view && !view.editable) return false;
     const sections = sectionsOf(state.doc);
     const section = sections[sectionIndex];
     const sibling = section && siblingOf(sections, section, dir);
     if (!section || !sibling) return false;
     if (!dispatch) return true;
+
+    // Remember where the caret is, by block id, so it can stay there.
+    const $head = state.selection.$head;
+    const caretId = $head.depth > 0 ? ($head.node(1).attrs.id as string | null) : null;
+    const caretOffset = $head.parentOffset;
 
     const [first, second] = dir < 0 ? [sibling, section] : [section, sibling];
     const from = offsetOfBlock(state.doc, first.start);
@@ -63,8 +70,11 @@ export function moveSection(sectionIndex: number, dir: -1 | 1): Command {
       ...state.doc.slice(from, mid).content.content,
     ]);
     const tr = state.tr.replaceWith(from, to, swapped);
-    const movedStart = dir < 0 ? from : from + (to - mid);
-    tr.setSelection(TextSelection.near(tr.doc.resolve(movedStart + 1)));
+    let caret = -1;
+    tr.doc.forEach((node, offset) => {
+      if (caret < 0 && caretId && node.attrs.id === caretId) caret = offset + 1 + Math.min(caretOffset, node.content.size);
+    });
+    if (caret >= 0) tr.setSelection(TextSelection.near(tr.doc.resolve(caret)));
     dispatch(tr.scrollIntoView());
     return true;
   };
