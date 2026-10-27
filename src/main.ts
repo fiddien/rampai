@@ -88,7 +88,8 @@ async function writingPage(root: HTMLElement, id: string) {
 
   const header = backBar();
   const page = el("main", "page");
-  const title = el("input", "draft-name chrome");
+  const titleRow = el("div", "title-row chrome");
+  const title = el("input", "draft-name");
   title.type = "text";
   title.setAttribute("aria-label", "Title");
   title.maxLength = 120;
@@ -110,16 +111,16 @@ async function writingPage(root: HTMLElement, id: string) {
   doc.subscribe(() => {
     if (document.activeElement !== title) title.value = getTitle(doc);
   });
-  page.append(title);
+  // Nothing sits at the bottom of the page. The count shares the title's line, and a save is silent
+  // unless it failed: no news is good news.
+  const words = el("span", "count");
+  const status = el("span", "save-problem");
+  status.setAttribute("role", "alert");
+  titleRow.append(title, words, status);
+  page.append(titleRow);
   const surface = el("div");
   page.append(surface);
-  const footer = el("footer", "footer chrome");
-  const inner = el("div", "footer-inner");
-  const words = el("span");
-  const status = el("span", "status", "Not saved yet");
-  inner.append(words, el("span", "spacer"), status);
-  footer.append(inner);
-  root.append(header, page, footer);
+  root.append(header, page);
 
   let view!: EditorView;
   const toolbar = buildToolbar(() => view);
@@ -196,9 +197,8 @@ async function writingPage(root: HTMLElement, id: string) {
     doc,
     DRAFT_KEY,
     () => {
-      status.textContent = "Saved on this device";
-      status.classList.remove("failed");
-      status.classList.add("ok");
+      status.textContent = "";
+      words.title = "Saved on this device";
       updateDraft(store, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now(), finished: isFinished(doc) });
     },
     400,
@@ -206,8 +206,7 @@ async function writingPage(root: HTMLElement, id: string) {
     () => !!getDraft(store, id),
     () => {
       status.textContent = "Not saved: this device's storage is full or blocked";
-      status.classList.remove("ok");
-      status.classList.add("failed");
+      words.title = "";
     },
   );
   // Leaving the page (a link, Back, or closing the tab) must not drop the last words typed.
@@ -367,7 +366,7 @@ async function route() {
   if (!persists) {
     const warn = el("p", "keys", "This browser is not keeping anything Rampai saves, so your drafts will be lost when you close this tab. Allow site storage for Rampai to keep them.");
     warn.setAttribute("role", "alert");
-    root.append(warn);
+    root.querySelector("header")?.after(warn);
   }
 }
 let routed = false;
