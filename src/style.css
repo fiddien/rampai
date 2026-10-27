@@ -169,7 +169,7 @@ a { color: var(--accent); text-underline-offset: 2px; }
   .outline { right: 16px; background: var(--bg); border: 1px solid var(--faint); border-radius: 8px; padding: 10px 12px; }
 }
 .outline[hidden] { display: none; }
-.outline-title { color: var(--soft); font-size: 12px; margin-bottom: 6px; }
+.outline-title { color: var(--soft); font-size: 12px; }
 .outline ol { list-style: none; margin: 0; padding: 0; }
 .outline-item { display: flex; align-items: center; gap: 2px; }
 .outline-item.level-2 { padding-left: 14px; }
@@ -182,3 +182,5 @@ a { color: var(--accent); text-underline-offset: 2px; }
 .outline .tool { min-width: 22px; padding: 2px 4px; }
 .outline .tool:disabled { opacity: 0.3; cursor: default; background: none; }
 .outline-empty { color: var(--soft); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.outline-title { font-weight: 400; margin: 0 0 6px; }
