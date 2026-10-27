@@ -9,6 +9,7 @@ import { blockIdsPlugin, newBlockId } from "./blockIds";
 import { typedOnlyPlugin } from "./typedOnly";
 import { rampaiInputRules } from "./inputRules";
 import { viewHintsPlugin } from "./view";
+import { dragHandlesPlugin } from "./drag";
 import { listEnter, moveBlock, resetBlockAtStart, toggleBlock } from "./commands";
 
 export { schema } from "./schema";
@@ -62,6 +63,7 @@ export function createEditorState(doc: Node = emptyDoc(), options: EditorOptions
       blockIdsPlugin(),
       typedOnlyPlugin(options.onBlockedPaste),
       viewHintsPlugin(),
+      dragHandlesPlugin(),
     ],
   });
 }
