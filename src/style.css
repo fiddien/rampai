@@ -1,0 +1,160 @@
+/* A single quiet page: one text column, ink on paper, chrome that fades while
+   the writer types. One accent, kept for the caret, selection, and focus. */
+:root {
+  --bg: #fcfcfb;
+  --ink: #23272c;
+  --soft: #6d737a;
+  --faint: #e7e9eb;
+  --accent: #2f5bd3;
+  --select: rgba(47, 91, 211, 0.16);
+  --f-write: "Newsreader", Georgia, "Times New Roman", serif;
+  --f-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --size-write: 1.25rem;
+  --lh-write: 1.7;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151719; --ink: #e5e7e9; --soft: #8c9298; --faint: #2a2e33;
+    --accent: #8ea8ff; --select: rgba(142, 168, 255, 0.24);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151719; --ink: #e5e7e9; --soft: #8c9298; --faint: #2a2e33;
+  --accent: #8ea8ff; --select: rgba(142, 168, 255, 0.24);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+::selection { background: var(--select); }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 var(--f-ui);
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: 96px;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+.chrome { transition: opacity 0.45s ease; }
+body.typing .chrome { opacity: 0.12; }
+body.typing .chrome:hover, body.typing .chrome:focus-within { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .chrome { transition: none; } }
+
+/* Top bar: plain words, no boxes */
+.toolbar {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--bg);
+  max-width: 44rem; margin: 0 auto;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  padding-block: 14px;
+}
+.brand { font-size: 13px; color: var(--soft); margin-right: auto; text-decoration: none; }
+.brand b { color: var(--ink); font-weight: 500; }
+.tool {
+  background: none; border: 0; padding: 4px 6px; border-radius: 4px;
+  color: var(--soft); cursor: pointer; font-size: 13px; min-width: 28px;
+}
+.tool:hover { color: var(--ink); background: var(--faint); }
+.tool[aria-pressed="true"] { color: var(--ink); background: var(--faint); }
+.tool.b { font-weight: 600; }
+.tool.i { font-style: italic; font-family: var(--f-write); font-size: 15px; }
+.sep { width: 1px; height: 16px; background: var(--faint); }
+
+.page { max-width: 44rem; margin: 0 auto; }
+.draft-name {
+  font-size: 13px; color: var(--soft); margin: 28px 0 8px;
+}
+
+/* The writing surface */
+.ProseMirror {
+  font-family: var(--f-write);
+  font-size: var(--size-write);
+  line-height: var(--lh-write);
+  font-optical-sizing: auto;
+  outline: none;
+  min-height: 50vh;
+  caret-color: var(--accent);
+  hanging-punctuation: first;
+  text-rendering: optimizeLegibility;
+  font-variant-ligatures: common-ligatures;
+}
+.ProseMirror > * { margin: 0 0 0.85em; }
+.ProseMirror h2 { font-size: 1.6em; font-weight: 500; line-height: 1.25; margin-top: 1.2em; letter-spacing: -0.01em; }
+.ProseMirror h3 { font-size: 1.25em; font-weight: 600; line-height: 1.35; margin-top: 1em; }
+.ProseMirror blockquote {
+  font-style: italic; color: var(--soft);
+  border-left: 2px solid var(--faint); padding-left: 1em; margin-left: 0;
+}
+.ProseMirror .list-item { position: relative; padding-left: 1.4em; margin-bottom: 0.3em; }
+.ProseMirror .list-item::before { content: "•"; position: absolute; left: 0.35em; color: var(--soft); }
+.ProseMirror strong { font-weight: 600; }
+.ProseMirror.empty > :first-child::before {
+  content: "Start anywhere. It's allowed to be bad.";
+  color: var(--soft); opacity: 0.7; pointer-events: none; float: left; height: 0;
+}
+
+/* The block the caret is in gets a quiet margin mark, so moving it with Alt+↑/↓ is easy to follow. */
+.ProseMirror > .current { position: relative; }
+.ProseMirror > .current::after {
+  content: ""; position: absolute; left: -14px; top: 0.35em; bottom: 0.35em;
+  width: 2px; border-radius: 1px; background: var(--faint);
+}
+
+.footer {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to top, var(--bg) 60%, transparent);
+  padding: 18px max(16px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-bottom, 0px));
+}
+.footer-inner {
+  max-width: 44rem; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 4px 16px;
+  font-size: 12px; color: var(--soft);
+}
+.footer-inner .spacer { margin-left: auto; }
+.status::before { content: "● "; color: var(--faint); }
+.status.ok::before { color: #3a9a6a; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 64px; transform: translate(-50%, 12px);
+  background: var(--ink); color: var(--bg);
+  padding: 8px 14px; border-radius: 6px; font-size: 13px;
+  max-width: calc(100vw - 32px);
+  opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.keys { color: var(--soft); font-size: 12px; margin-top: 40px; line-height: 1.9; }
+.keys kbd {
+  font: 11px var(--f-ui); border: 1px solid var(--faint); border-bottom-width: 2px;
+  border-radius: 3px; padding: 0 4px; color: var(--ink);
+}
+
+/* Two devices demo */
+.duo { max-width: 72rem; margin: 0 auto; }
+.duo-intro { max-width: 44rem; margin: 24px auto 8px; color: var(--soft); font-size: 13px; }
+.duo-intro p { margin: 0 0 8px; }
+.duo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px; }
+@media (max-width: 760px) { .duo-grid { grid-template-columns: 1fr; } }
+.device {
+  border: 1px solid var(--faint); border-radius: 10px; padding: 14px 20px 20px;
+  min-width: 0;
+}
+.device-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--soft); margin-bottom: 8px; }
+.device-head b { color: var(--ink); font-weight: 500; }
+.device-head .tools { margin-left: auto; display: flex; gap: 2px; }
+.device .ProseMirror { min-height: 16rem; font-size: 1.125rem; }
+.network {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  background: none; border: 1px solid var(--faint); border-radius: 999px; padding: 4px 12px 4px 8px;
+  font-size: 13px;
+}
+.network .dot { width: 8px; height: 8px; border-radius: 50%; background: #3a9a6a; }
+.network[aria-pressed="false"] .dot { background: var(--soft); }
+.wire { font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--soft); overflow-wrap: anywhere; margin-top: 10px; min-height: 2.8em; }
+
+a { color: var(--accent); text-underline-offset: 2px; }
+.brand, .brand:visited { color: var(--soft); }

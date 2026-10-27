@@ -1,0 +1,33 @@
+{
+  "name": "rampai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rampai: a gentle ramp to clear thinking. A typed-only, local-first writing app.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "loro-crdt": "^1.17.1",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-history": "^1.5.1",
+    "prosemirror-inputrules": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "jsdom": "^30.1.3",
+    "loro-prosemirror": "^0.4.4",
+    "prosemirror-schema-basic": "^1.2.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vite-plugin-wasm": "^3.6.0",
+    "vitest": "^5.0.5"
+  }
+}
