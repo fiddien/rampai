@@ -1,5 +1,6 @@
 import { createDraft, deleteDraft, listDrafts, partitionDrafts, type DraftEntry, type Store } from "../sync/library";
 import { draftVersion } from "../sync/librarySync";
+import { navBar } from "./nav";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -21,12 +22,8 @@ export function editedLabel(updatedAt: number, now = Date.now()): string {
 }
 
 /** The home screen: every draft saved on this device, and a way to begin a new one. */
-export function libraryPage(root: HTMLElement, store: Store, open: (id: string) => void) {
-  const header = el("header", "toolbar");
-  const brand = el("a", "brand");
-  brand.href = "#/";
-  brand.innerHTML = "<b>Rampai</b> · a gentle ramp to clear thinking";
-  header.append(brand);
+export function libraryPage(root: HTMLElement, store: Store, open: (id: string) => void, opts: { wordsMissing?: boolean } = {}) {
+  const header = navBar("drafts", opts);
 
   const page = el("main", "page home");
   const heading = el("h1", "home-title", "Your drafts");
@@ -40,9 +37,7 @@ export function libraryPage(root: HTMLElement, store: Store, open: (id: string) 
   finishedList.setAttribute("aria-label", "Finished pieces");
   page.append(heading, start, list, finishedHeading, finishedList);
 
-  const note = el("p", "keys");
-  note.innerHTML = 'Drafts stay on this device. <a href="#two-devices">See two devices sync</a>.';
-  root.append(header, page, note);
+  root.append(header, page);
 
   function row(d: DraftEntry): HTMLLIElement {
     const li = el("li", "draft-row");

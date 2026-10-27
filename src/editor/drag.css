@@ -17,3 +17,5 @@ body.finished .drag-handle, .ProseMirror[contenteditable="false"] .drag-handle {
 .ProseMirror > .drop-before { box-shadow: 0 -2px 0 var(--accent); }
 .ProseMirror > .drop-after { box-shadow: 0 2px 0 var(--accent); }
 @media (prefers-reduced-motion: reduce) { .drag-handle { transition: none; } }
+/* Keep the handle inside the screen on a narrow window. */
+@media (max-width: 760px) { .drag-handle { left: -16px; width: 16px; } }

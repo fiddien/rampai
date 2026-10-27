@@ -1,5 +1,6 @@
 import { generateKey } from "../sync/crypto";
 import { deriveKey, saveDeviceKey, type KeySource } from "../sync/keys";
+import { navBar } from "./nav";
 import { checkPassphrase, confirmMatches, confirmPositions, generatePassphrase } from "../sync/passphrase";
 
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -20,12 +21,20 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text 
   return node;
 }
 
-function shell(root: HTMLElement, title: string): HTMLElement {
-  const header = el("header", "toolbar");
-  const brand = el("a", "brand");
-  brand.innerHTML = "<b>Rampai</b> · a gentle ramp to clear thinking";
-  brand.href = "#/";
-  header.append(brand);
+/**
+ * A device that already has a key sees the usual bar, with Recovery words marked;
+ * a first-time writer sees only the wordmark, since there is nowhere else to go yet.
+ */
+function shell(root: HTMLElement, title: string, existing?: KeySource): HTMLElement {
+  let header: HTMLElement;
+  if (existing) header = navBar("words", { wordsMissing: existing === "random" });
+  else {
+    header = el("header", "toolbar");
+    const brand = el("a", "brand");
+    brand.innerHTML = "<b>Rampai</b>";
+    brand.href = "#/welcome";
+    header.append(brand);
+  }
   const page = el("main", "page onboarding");
   page.append(el("h1", "home-title", title));
   root.append(header, page);
@@ -75,14 +84,14 @@ function guardExistingWords(page: HTMLElement, go: (hash: string) => void, proce
 
 export function welcomePage(root: HTMLElement, store: Store, session: Store, go: (hash: string) => void, existing?: KeySource) {
   if (existing === "passphrase") {
-    const page = shell(root, "Recovery words");
+    const page = shell(root, "Recovery words", existing);
     guardExistingWords(page, go, () => {
       root.replaceChildren();
       welcomePage(root, store, session, go);
     });
     return;
   }
-  const page = shell(root, "Welcome");
+  const page = shell(root, "Welcome", existing);
   page.append(
     el("p", "lede", "Rampai is for writing in your own words. Your drafts stay on your own devices and sync between them directly, with no server in between."),
     el(
@@ -108,10 +117,10 @@ export function welcomePage(root: HTMLElement, store: Store, session: Store, go:
   page.append(actions, later);
 }
 
-export function recoveryPage(root: HTMLElement, session: Store, go: (hash: string) => void) {
+export function recoveryPage(root: HTMLElement, session: Store, go: (hash: string) => void, existing?: KeySource) {
   const words = pending(session);
   if (!words) return go("#/welcome");
-  const page = shell(root, "Your recovery words");
+  const page = shell(root, "Your recovery words", existing);
   const list = el("ol", "words");
   list.setAttribute("aria-label", "Recovery words, in order");
   words.forEach((w) => list.append(el("li", "", w)));
@@ -123,7 +132,7 @@ export function recoveryPage(root: HTMLElement, session: Store, go: (hash: strin
   page.append(button("I wrote them down", true, () => go("#/recovery/confirm")));
 }
 
-export function confirmPage(root: HTMLElement, store: Store, session: Store, go: (hash: string) => void) {
+export function confirmPage(root: HTMLElement, store: Store, session: Store, go: (hash: string) => void, existing?: KeySource) {
   const words = pending(session);
   if (!words) return go("#/welcome");
   let positions: number[];
@@ -135,7 +144,7 @@ export function confirmPage(root: HTMLElement, store: Store, session: Store, go:
   }
   session.setItem(POSITIONS, JSON.stringify(positions));
 
-  const page = shell(root, "Check your words");
+  const page = shell(root, "Check your words", existing);
   page.append(el("p", "", "To be sure you wrote them down, type these words from your list."));
   const form = el("form", "words-form");
   const inputs = positions.map((p) => {
@@ -173,14 +182,14 @@ export function confirmPage(root: HTMLElement, store: Store, session: Store, go:
 
 export function pairPage(root: HTMLElement, store: Store, go: (hash: string) => void, existing?: KeySource) {
   if (existing === "passphrase") {
-    const page = shell(root, "Add this device");
+    const page = shell(root, "Add this device", existing);
     guardExistingWords(page, go, () => {
       root.replaceChildren();
       pairPage(root, store, go);
     });
     return;
   }
-  const page = shell(root, "Add this device");
+  const page = shell(root, "Add this device", existing);
   page.append(el("p", "", "Type the seven recovery words from your other device, in order."));
   const form = el("form", "words-form");
   const label = el("label", "", "Recovery words");

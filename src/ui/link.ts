@@ -1,4 +1,5 @@
 import type { KeySource } from "../sync/keys";
+import { navBar } from "./nav";
 import { chunked } from "../sync/chunks";
 import { LibrarySync } from "../sync/librarySync";
 import { sendUpdate } from "../sync/peer";
@@ -43,11 +44,7 @@ async function copy(box: HTMLTextAreaElement): Promise<boolean> {
  * The link lasts while this page is open.
  */
 export function linkPage(root: HTMLElement, store: Store, key: CryptoKey, source: KeySource) {
-  const header = el("header", "toolbar");
-  const brand = el("a", "brand");
-  brand.innerHTML = "<b>Rampai</b> · ‹ Drafts";
-  brand.href = "#/";
-  header.append(brand);
+  const header = navBar("link", { wordsMissing: source === "random" });
   const page = el("main", "page onboarding");
   page.append(el("h1", "home-title", "Link a device"));
   root.append(header, page);
@@ -70,7 +67,9 @@ export function linkPage(root: HTMLElement, store: Store, key: CryptoKey, source
   const enterCode = el("button", "tool-text", "Enter a code from the other device");
   showCode.type = enterCode.type = "button";
   choose.append(showCode, enterCode);
-  page.append(choose, steps, status);
+  const demo = el("p", "soft");
+  demo.innerHTML = 'Want to see how it works first? <a href="#two-devices">Watch two simulated devices sync</a>.';
+  page.append(choose, steps, status, demo);
 
   const say = (text: string) => (status.textContent = text);
   const fail = (e: unknown) => say(e instanceof Error ? e.message : "Something went wrong. Try again.");

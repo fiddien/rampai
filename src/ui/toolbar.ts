@@ -1,8 +1,8 @@
 import type { EditorView } from "prosemirror-view";
 import type { EditorState, Command } from "prosemirror-state";
-import { toggleMark } from "prosemirror-commands";
+import { toggleMark, setBlockType } from "prosemirror-commands";
 import { schema } from "../editor/schema";
-import { moveBlock, toggleBlock } from "../editor/commands";
+import { moveBlock } from "../editor/commands";
 import { countWords } from "../editor/words";
 
 const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -26,19 +26,9 @@ function markActive(name: "strong" | "em") {
   };
 }
 
-function blockActive(name: string) {
-  return (state: EditorState) => state.selection.$head.parent.type.name === name;
-}
-
 const FORMAT: Tool[] = [
   { label: "B", title: `Bold (${MOD}+B)`, className: "b", command: toggleMark(schema.marks.strong), active: markActive("strong") },
   { label: "I", title: `Italic (${MOD}+I)`, className: "i", command: toggleMark(schema.marks.em), active: markActive("em") },
-];
-const BLOCKS: Tool[] = [
-  { label: "H1", title: `Heading (${MOD}+${ALT}+1, or type # and a space)`, command: toggleBlock("heading1"), active: blockActive("heading1") },
-  { label: "H2", title: `Subheading (${MOD}+${ALT}+2, or type ## and a space)`, command: toggleBlock("heading2"), active: blockActive("heading2") },
-  { label: "Quote", title: `Quote (${MOD}+Shift+Q, or type > and a space)`, command: toggleBlock("quote"), active: blockActive("quote") },
-  { label: "List", title: `List (${MOD}+Shift+L, or type - and a space)`, command: toggleBlock("list_item"), active: blockActive("list_item") },
 ];
 const MOVE: Tool[] = [
   { label: "↑", title: `Move this block up (${ALT}+↑)`, command: moveBlock(-1) },
@@ -50,19 +40,26 @@ export interface Toolbar {
   update(state: EditorState): void;
 }
 
-/** Formatting buttons for one editor. `compact` keeps only bold, italic, and moves. */
+const BLOCK_MENU: { type: string; label: string }[] = [
+  { type: "paragraph", label: "Text" },
+  { type: "heading1", label: "Heading" },
+  { type: "heading2", label: "Subheading" },
+  { type: "quote", label: "Quote" },
+  { type: "list_item", label: "List" },
+];
+
+/**
+ * Formatting for one editor. The writing page shows bold, italic and one menu
+ * for the kind of block; `compact` (the two-device demo) shows bold, italic and
+ * the block moves instead.
+ */
 export function buildToolbar(getView: () => EditorView, compact = false): Toolbar {
   const element = document.createElement("div");
   element.className = "tools";
-  const groups = compact ? [FORMAT, MOVE] : [FORMAT, BLOCKS, MOVE];
+  const groups = compact ? [FORMAT, MOVE] : [FORMAT];
   const buttons: { tool: Tool; el: HTMLButtonElement }[] = [];
 
-  groups.forEach((group, g) => {
-    if (g > 0 && !compact) {
-      const sep = document.createElement("span");
-      sep.className = "sep";
-      element.append(sep);
-    }
+  groups.forEach((group) => {
     for (const tool of group) {
       const el = document.createElement("button");
       el.type = "button";
@@ -83,9 +80,35 @@ export function buildToolbar(getView: () => EditorView, compact = false): Toolba
     }
   });
 
+  // One menu for the kind of block, instead of a button for each.
+  let menu: HTMLSelectElement | undefined;
+  if (!compact) {
+    menu = document.createElement("select");
+    menu.className = "block-type";
+    menu.title = "Kind of block";
+    menu.setAttribute("aria-label", "Kind of block");
+    for (const { type, label } of BLOCK_MENU) {
+      const option = document.createElement("option");
+      option.value = type;
+      option.textContent = label;
+      menu.append(option);
+    }
+    menu.addEventListener("change", () => {
+      const view = getView();
+      setBlockType(schema.nodes[menu!.value])(view.state, view.dispatch, view);
+      view.focus();
+    });
+    element.append(menu);
+  }
+
   return {
     element,
     update(state) {
+      if (menu) {
+        const current = state.selection.$head.parent.type.name;
+        menu.value = BLOCK_MENU.some((o) => o.type === current) ? current : "paragraph";
+        menu.disabled = !getView().editable;
+      }
       for (const { tool, el } of buttons) {
         if (tool.active) el.setAttribute("aria-pressed", String(tool.active(state)));
         el.disabled = !getView().editable || !tool.command(state);
