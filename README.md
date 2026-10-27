@@ -7,6 +7,7 @@ Rampai is a writing app for people who want to think more clearly by writing in 
 This repository holds the first **tracer bullet**: a thin, working path through the parts that are hardest to change later.
 
 - A block editor with Word-style shortcuts, Markdown-style shortcuts, and blocks that move with <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>.
+- A home screen of drafts saved on the device. Every new draft is titled "My first bad draft", and the title can be changed in place and syncs between devices.
 - Outline mode (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>): headings only, and whole sections move with their text.
 - The typed-only rule (paste and drop from outside are refused).
 - A local-first document model on [Loro](https://loro.dev), where each block keeps its identity when it moves.
@@ -17,7 +18,7 @@ This repository holds the first **tracer bullet**: a thin, working path through 
 
 ```sh
 npm install
-npm run dev        # http://localhost:5173, and /#two-devices for the sync demo
+npm run dev        # http://localhost:5173 (the drafts home), and /#two-devices for the sync demo
 npm test           # unit, property, and concurrency tests
 npm run build      # static build in dist/
 ```

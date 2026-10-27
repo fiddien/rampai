@@ -12,8 +12,10 @@ import { generateKey, exportKey, importKey } from "./sync/crypto";
 import { loadSnapshot, autosave } from "./sync/storage";
 import { buildToolbar, wordCount, MOD, ALT } from "./ui/toolbar";
 import { buildOutline } from "./ui/outline";
+import { libraryPage } from "./ui/library";
+import { draftKey, getDraft, updateDraft } from "./sync/library";
+import { getTitle, setTitle } from "./sync/meta";
 
-const DRAFT_KEY = "rampai:draft:v1";
 const KEY_KEY = "rampai:key:v1";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", html = ""): HTMLElementTagNameMap[K] {
@@ -69,7 +71,8 @@ function mountEditor(place: HTMLElement, doc: ReturnType<typeof createDoc>, init
 
 // ——— The writing page: one draft, saved on this device, synced across its tabs ———
 
-async function writingPage(root: HTMLElement) {
+async function writingPage(root: HTMLElement, id: string) {
+  const DRAFT_KEY = draftKey(id);
   let key: CryptoKey;
   try {
     const stored = localStorage.getItem(KEY_KEY);
@@ -83,9 +86,32 @@ async function writingPage(root: HTMLElement) {
   loadSnapshot(doc, DRAFT_KEY);
 
   const header = el("header", "toolbar chrome");
-  header.append(el("a", "brand", "<b>Rampai</b> · a gentle ramp to clear thinking"));
+  const brand = el("a", "brand", "<b>Rampai</b> · ‹ Drafts");
+  brand.href = "#/";
+  header.append(brand);
   const page = el("main", "page");
-  page.append(el("div", "draft-name chrome", "My first bad draft"));
+  const title = el("input", "draft-name chrome");
+  title.type = "text";
+  title.setAttribute("aria-label", "Title");
+  title.maxLength = 120;
+  title.value = getTitle(doc);
+  // Typed-only holds for the title too.
+  title.addEventListener("paste", (e) => {
+    e.preventDefault();
+    refusePaste();
+  });
+  title.addEventListener("input", () => setTitle(doc, title.value));
+  title.addEventListener("blur", () => (title.value = getTitle(doc)));
+  title.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      view.focus();
+    }
+  });
+  doc.subscribe(() => {
+    if (document.activeElement !== title) title.value = getTitle(doc);
+  });
+  page.append(title);
   const surface = el("div");
   page.append(surface);
   page.append(
@@ -142,10 +168,11 @@ async function writingPage(root: HTMLElement) {
   autosave(doc, DRAFT_KEY, () => {
     status.textContent = "Saved on this device";
     status.classList.add("ok");
+    updateDraft(localStorage, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now() });
   });
   // Other tabs of this browser are other replicas of the same draft.
   if ("BroadcastChannel" in window) {
-    connect(mounted.binding, encrypted(new BroadcastChannelTransport("rampai:draft"), key));
+    connect(mounted.binding, encrypted(new BroadcastChannelTransport(`rampai:draft:${id}`), key));
   }
   view.focus();
 }
@@ -257,8 +284,10 @@ function route() {
   const root = document.getElementById("app")!;
   root.replaceChildren();
   document.body.classList.remove("typing");
+  const draftId = /^#\/draft\/([\w-]+)$/.exec(location.hash)?.[1];
   if (location.hash === "#two-devices") void twoDevicesPage(root);
-  else void writingPage(root);
+  else if (draftId && getDraft(localStorage, draftId)) void writingPage(root, draftId);
+  else libraryPage(root, localStorage, (newId) => (location.hash = `#/draft/${newId}`));
 }
 let routed = false;
 window.addEventListener("hashchange", route);
