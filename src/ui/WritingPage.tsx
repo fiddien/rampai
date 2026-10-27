@@ -7,6 +7,7 @@ import { getTitle, isFinished, setTitle } from "../sync/meta";
 import { connect } from "../sync/peer";
 import { BroadcastChannelTransport, encrypted } from "../sync/transport";
 import { useApp } from "../app/context";
+import { useLinkSession, useLinkStatus } from "../app/linkSession";
 import { BackBar } from "./Nav";
 import { Toolbar, ToolButton } from "./Toolbar";
 import { Outline } from "./Outline";
@@ -90,6 +91,11 @@ export function WritingPage({ id }: { id: string }) {
     };
   }, [handle, device, id]);
 
+  // While linked to another device, this draft's edits go there as they are typed, and its edits come here.
+  const session = useLinkSession();
+  const live = useLinkStatus(session).live;
+  useEffect(() => (session && handle ? session.attach(id, handle.binding) : undefined), [session, handle, id]);
+
   useEffect(() => {
     view?.focus();
   }, [view]);
@@ -156,6 +162,11 @@ export function WritingPage({ id }: { id: string }) {
           <span className="count" title={saveProblem ? "" : "Saved on this device"}>
             {plural(words, "word", "words")}
           </span>
+          {live && (
+            <span className="count linked" title="Edits go to your other device as you type">
+              linked
+            </span>
+          )}
           <span className="save-problem" role="alert">
             {saveProblem ? "Not saved: this device's storage is full or blocked" : ""}
           </span>

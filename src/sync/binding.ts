@@ -1,4 +1,4 @@
-import type { LoroDoc } from "loro-crdt";
+import type { ImportStatus, LoroDoc } from "loro-crdt";
 import type { EditorView } from "prosemirror-view";
 import { TextSelection, type Transaction } from "prosemirror-state";
 import { readDocFromLoro, writeDocToLoro, blocksOf } from "./model";
@@ -39,10 +39,14 @@ export class DocBinding {
     }
   }
 
-  /** Apply an update received from another device. */
-  receive(update: Uint8Array): void {
-    this.doc.import(update);
+  /**
+   * Apply an update received from another device. The status says whether any
+   * of it is pending, waiting for earlier changes this document lacks.
+   */
+  receive(update: Uint8Array): ImportStatus {
+    const status = this.doc.import(update);
     this.refreshFromLoro();
+    return status;
   }
 
   refreshFromLoro(): void {

@@ -251,3 +251,6 @@ body.finished .ProseMirror { color: var(--soft); }
 .block-type { flex: none; }
 .block-type select { width: auto; min-width: 0; height: 26px; min-height: 26px; }
 @media (max-width: 560px) { .toolbar .tool { min-width: 24px; padding-inline: 4px; } }
+/* Linked to another device: a green dot in the bar, a quiet word beside the count. */
+.nav-dot.linked { background: #3a9a6a; }
+.count.linked::before { content: "● "; color: #3a9a6a; }

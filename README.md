@@ -12,7 +12,7 @@ This repository holds the first **tracer bullet**: a thin, working path through 
 - Recovery words: a seven-word passphrase makes the key that keeps drafts private. A second device types the words and gets the same key. Setup is skippable. The words can be checked later against the device's key.
 - Backup and restore: every draft in one file, sealed with the recovery words; restoring merges with what is on the device.
 - Drag handles in the margin move a block with a mouse or a finger.
-- Link a device: two devices with the same recovery words swap a code each, then exchange every draft directly over WebRTC on the local network, sealed with the key.
+- Link a device: two devices with the same recovery words swap a code each, then exchange every draft directly over WebRTC on the local network, sealed with the key. While linked, edits to open drafts go between the devices as they are typed.
 - A slim navigation bar (Drafts, Link a device, Recovery words) on every page but the writing page, which keeps only a back link, bold, italic, a block menu, Outline, Finish, and a `?` panel for keyboard shortcuts.
 - Outline mode (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>): headings only, and whole sections move with their text.
 - The typed-only rule (paste and drop from outside are refused).
