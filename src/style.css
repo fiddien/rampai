@@ -289,3 +289,10 @@ a.primary { display: inline-block; text-decoration: none; }
 .shortcuts .soft { font-size: 12px; margin: 0 0 8px; }
 /* A phone has no keyboard shortcuts to look up, and the bar should stay on one row. */
 @media (max-width: 560px) { .shortcuts-open { display: none; } }
+
+/* Backup and the words check: quiet sections under one page title */
+.backup-part { margin-top: 36px; max-width: 36rem; }
+.backup-part .home-sub { margin-bottom: 4px; }
+.file-pick { display: grid; gap: 6px; margin: 12px 0 4px; font-size: 13px; color: var(--soft); }
+.file-pick input { font: 14px var(--f-ui); color: var(--ink); }
+.backup-part .primary + .form-message { margin-top: 8px; }

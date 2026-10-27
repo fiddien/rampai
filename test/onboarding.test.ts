@@ -59,7 +59,7 @@ describe("a device that already has recovery words", () => {
     const root = document.createElement("div");
     welcomePage(root, new MemoryStore(), new MemoryStore(), vi.fn());
     expect(root.textContent).not.toMatch(/get your drafts back/);
-    expect(root.textContent).toMatch(/keep your drafts on at least one device/);
+    expect(root.textContent).toMatch(/keep them on at least one device, or in a backup/);
   });
 });
 

@@ -41,3 +41,12 @@ export async function saveDeviceKey(store: Store, key: CryptoKey, source: KeySou
   store.setItem(KEY_KEY, await exportKey(key));
   store.setItem(SOURCE_KEY, source);
 }
+
+/**
+ * Whether typed words make this device's key. The words themselves are never
+ * stored, so this is how a writer checks that what they wrote down is right.
+ */
+export async function wordsMatchKey(words: string[], key: CryptoKey, params: { N: number } = SCRYPT): Promise<boolean> {
+  const [a, b] = await Promise.all([exportKey(await deriveKey(words, params)), exportKey(key)]);
+  return a === b;
+}

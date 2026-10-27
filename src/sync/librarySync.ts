@@ -1,8 +1,6 @@
 import { VersionVector, type LoroDoc } from "loro-crdt";
-import { addTombstone, adoptDraft, deleteDraft, draftKey, listDrafts, listTombstones, removeTombstone, updateDraft, type Store } from "./library";
-import { createDoc, wordsOf } from "./model";
-import { getTitle, isFinished } from "./meta";
-import { fromBase64, readSnapshot, writeSnapshot } from "./storage";
+import { addTombstone, deleteDraft, listDrafts, listTombstones, type Store } from "./library";
+import { coveredBy, decodeVersion, loadDraft, mergeDraft } from "./merge";
 import type { Transport } from "./transport";
 
 /**
@@ -74,32 +72,9 @@ function readIndex(body: Uint8Array): IndexMessage | undefined {
   };
 }
 
-function decodeVersion(base64: string | undefined): VersionVector | undefined {
-  if (!base64) return undefined;
-  try {
-    return VersionVector.decode(fromBase64(base64));
-  } catch {
-    return undefined;
-  }
-}
-
-/** True when `mine` holds nothing beyond `theirs`: equal, or strictly behind. */
-const coveredBy = (mine: VersionVector, theirs: VersionVector) => {
-  const c = mine.compare(theirs);
-  return c === 0 || c === -1;
-};
-
 /** A saved draft's version vector, for a tombstone. */
 export function draftVersion(store: Store, id: string): Uint8Array | undefined {
-  const bytes = readSnapshot(store, draftKey(id));
-  if (!bytes) return undefined;
-  try {
-    const doc = createDoc();
-    doc.import(bytes);
-    return doc.oplogVersion().encode();
-  } catch {
-    return undefined;
-  }
+  return loadDraft(store, id)?.oplogVersion().encode();
 }
 
 export interface SyncHooks {
@@ -143,15 +118,7 @@ export class LibrarySync {
   }
 
   private load(id: string): LoroDoc | undefined {
-    const bytes = readSnapshot(this.store, draftKey(id));
-    if (!bytes) return undefined;
-    const doc = createDoc();
-    try {
-      doc.import(bytes);
-    } catch {
-      return undefined;
-    }
-    return doc;
+    return loadDraft(this.store, id);
   }
 
   private hello(id: string, version?: VersionVector): void {
@@ -251,44 +218,12 @@ export class LibrarySync {
   }
 
   private receiveUpdate(id: string, body: Uint8Array): void {
-    const existing = this.load(id);
-    const doc = existing ?? createDoc();
-    const before = existing?.oplogVersion();
-    try {
-      doc.import(body);
-    } catch {
-      this.answered(id);
-      return;
+    const result = mergeDraft(this.store, id, body);
+    if (result === "storage-full") this.hooks.onStorageFull?.(id);
+    if (result === "created" || result === "merged") {
+      this.onSaved(id, body);
+      this.hooks.onUpdate?.(id, result === "created");
     }
-    // Nothing new: leave the saved draft and its "edited" time alone.
-    if (before && coveredBy(doc.oplogVersion(), before)) return this.answered(id);
-
-    const tombstone = listTombstones(this.store)[id];
-    if (!existing && tombstone) {
-      const deletedAt = decodeVersion(tombstone.version);
-      // Deleted here, and nothing new since: it stays deleted.
-      if (deletedAt && coveredBy(doc.oplogVersion(), deletedAt)) return this.answered(id);
-    }
-
-    // Save first. If storage refuses, the draft is not listed, so the home
-    // screen never shows a draft whose words are not on this device.
-    try {
-      writeSnapshot(this.store, draftKey(id), doc.export({ mode: "snapshot" }));
-    } catch {
-      this.hooks.onStorageFull?.(id);
-      this.answered(id);
-      return;
-    }
-    if (tombstone) removeTombstone(this.store, id);
-
-    const summary = { title: getTitle(doc), words: wordsOf(doc), finished: isFinished(doc), updatedAt: Date.now() };
-    // With no index, listing rebuilds one from the saved drafts, which may already list
-    // this one by a placeholder title; updating afterwards gives it the real one either way.
-    const listedBefore = !!existing && listDrafts(this.store).some((d) => d.id === id);
-    if (listDrafts(this.store).some((d) => d.id === id)) updateDraft(this.store, id, summary);
-    else adoptDraft(this.store, { id, ...summary });
-    this.onSaved(id, body);
-    this.hooks.onUpdate?.(id, !listedBefore);
     this.answered(id);
   }
 }

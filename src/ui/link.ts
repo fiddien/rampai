@@ -2,9 +2,9 @@ import type { KeySource } from "../sync/keys";
 import { navBar } from "./nav";
 import { chunked } from "../sync/chunks";
 import { LibrarySync } from "../sync/librarySync";
-import { sendUpdate } from "../sync/peer";
 import type { Store } from "../sync/library";
-import { BroadcastChannelTransport, encrypted, type Transport } from "../sync/transport";
+import { encrypted } from "../sync/transport";
+import { tabNotifier } from "../sync/tabs";
 import { joinLink, startLink, type DeviceLink } from "../sync/webrtc";
 
 const WRONG_KEY_MS = 6000;
@@ -75,7 +75,7 @@ export function linkPage(root: HTMLElement, store: Store, key: CryptoKey, source
   const fail = (e: unknown) => say(e instanceof Error ? e.message : "Something went wrong. Try again.");
 
   // ——— After the connection opens ———
-  const tabChannels = new Map<string, { raw: BroadcastChannelTransport; sealed: Transport }>();
+  const tabs = tabNotifier(key);
   async function linked(link: DeviceLink) {
     choose.hidden = true;
     steps.replaceChildren();
@@ -128,23 +128,12 @@ export function linkPage(root: HTMLElement, store: Store, key: CryptoKey, source
         },
       },
       // A draft open in another tab of this browser hears about it too, so that tab's next save does not overwrite it.
-      (id, update) => {
-        let tab = tabChannels.get(id);
-        if (!tab) {
-          const raw = new BroadcastChannelTransport(`rampai:draft:${id}`);
-          tabChannels.set(id, (tab = { raw, sealed: encrypted(raw, key) }));
-        }
-        sendUpdate(tab.sealed, update);
-      },
+      (id, update) => tabs.send(id, update),
     );
     link.onClosed(() => {
       clearTimeout(wrong);
       sync.stop();
-      // Let pending sends to other tabs go out, then close their channels.
-      setTimeout(() => {
-        tabChannels.forEach((t) => t.raw.close());
-        tabChannels.clear();
-      }, 1000);
+      tabs.close();
       say("The link has closed. Your drafts are saved on this device.");
     });
     sync.start();
