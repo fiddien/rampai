@@ -156,7 +156,7 @@ async function writingPage(root: HTMLElement, id: string) {
   finish = buildFinish(doc, () => (view ? wordCount(view.state) : 0), refusePaste, (finished) => {
     finishButton.textContent = finished ? "Finished" : "Finish";
     view?.setProps({ editable: () => !finished });
-    title.readOnly = finished;
+    // The title stays editable: renaming a finished piece does not change what it says.
     document.body.classList.toggle("finished", finished);
     // The toolbar and outline follow the draft's read-only state at once.
     if (view) {

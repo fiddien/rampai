@@ -74,7 +74,6 @@ body.typing .chrome:hover, body.typing .chrome:focus-within { opacity: 1; }
 .draft-name::placeholder { color: var(--soft); font-style: italic; }
 .draft-name:hover { border-bottom-color: var(--faint); }
 .draft-name:focus { outline: none; border-bottom: 1px solid var(--accent); }
-.draft-name:read-only { cursor: default; border-bottom-color: transparent; }
 
 /* The writing surface */
 .ProseMirror {
