@@ -88,7 +88,7 @@ export function buildToolbar(getView: () => EditorView, compact = false): Toolba
     update(state) {
       for (const { tool, el } of buttons) {
         if (tool.active) el.setAttribute("aria-pressed", String(tool.active(state)));
-        el.disabled = !tool.command(state);
+        el.disabled = !getView().editable || !tool.command(state);
       }
     },
   };

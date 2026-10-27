@@ -14,8 +14,9 @@ import { typedOnlyField } from "./ui/typedOnlyInput";
 import { buildToolbar, wordCount, MOD, ALT } from "./ui/toolbar";
 import { buildOutline } from "./ui/outline";
 import { libraryPage } from "./ui/library";
+import { buildFinish, type FinishPanel } from "./ui/finish";
 import { draftKey, getDraft, updateDraft } from "./sync/library";
-import { getTitle, setTitle } from "./sync/meta";
+import { getTitle, setTitle, isFinished } from "./sync/meta";
 
 const KEY_KEY = "rampai:key:v1";
 const store = deviceStore();
@@ -157,15 +158,43 @@ async function writingPage(root: HTMLElement, id: string) {
     }
   });
   root.append(outline.element);
+
+  // Finishing: say what the piece claims and read it aloud. A finished piece is read-only until reopened.
+  const finishButton = el("button", "tool", "Finish");
+  finishButton.type = "button";
+  finishButton.title = "Say what this piece claims, and mark it finished";
+  finishButton.setAttribute("aria-pressed", "false");
+  let finish!: FinishPanel;
+  const syncPressed = () => finishButton.setAttribute("aria-pressed", String(!!finish?.open));
+  finish = buildFinish(doc, () => (view ? wordCount(view.state) : 0), refusePaste, (finished) => {
+    finishButton.textContent = finished ? "Finished" : "Finish";
+    view?.setProps({ editable: () => !finished });
+    title.readOnly = finished;
+    document.body.classList.toggle("finished", finished);
+    // The toolbar and outline follow the draft's read-only state at once.
+    if (view) {
+      toolbar.update(view.state);
+      outline.update();
+    }
+    syncPressed();
+  });
+  finishButton.addEventListener("click", () => {
+    finish.toggle();
+    syncPressed();
+  });
+  header.append(finishButton);
+  page.append(finish.element);
   const update = () => {
     if (!view) return;
     outline.update();
+    // The finish panel follows the document itself (doc.subscribe), so it is not refreshed here too.
     toolbar.update(view.state);
     const n = wordCount(view.state);
     words.textContent = `${n} ${n === 1 ? "word" : "words"}`;
   };
   const mounted = mountEditor(surface, doc, undefined, update);
   view = mounted.view;
+  view.setProps({ editable: () => !isFinished(doc) });
   update();
 
   const saver = autosave(
@@ -175,7 +204,7 @@ async function writingPage(root: HTMLElement, id: string) {
       status.textContent = "Saved on this device";
       status.classList.remove("failed");
       status.classList.add("ok");
-      updateDraft(store, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now() });
+      updateDraft(store, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now(), finished: isFinished(doc) });
     },
     400,
     // If this draft was deleted from another tab, don't write it back.

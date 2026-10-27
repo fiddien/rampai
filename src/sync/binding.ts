@@ -27,6 +27,9 @@ export class DocBinding {
 
   /** Use as the editor's `dispatchTransaction`. */
   dispatch(tr: Transaction): void {
+    // A read-only draft (a finished piece) refuses every local edit, whichever
+    // button or shortcut it came from; only updates from other devices apply.
+    if (!this.view.editable && tr.docChanged && !tr.getMeta(REMOTE)) return;
     const { state, transactions } = this.view.state.applyTransaction(tr);
     this.view.updateState(state);
     if (tr.getMeta(REMOTE)) return;

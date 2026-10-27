@@ -1,4 +1,4 @@
-import { createDraft, deleteDraft, listDrafts, type DraftEntry, type Store } from "../sync/library";
+import { createDraft, deleteDraft, listDrafts, partitionDrafts, type DraftEntry, type Store } from "../sync/library";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -34,7 +34,10 @@ export function libraryPage(root: HTMLElement, store: Store, open: (id: string) 
   start.addEventListener("click", () => open(createDraft(store).id));
   const list = el("ul", "drafts");
   list.setAttribute("aria-label", "Drafts");
-  page.append(heading, start, list);
+  const finishedHeading = el("h2", "home-sub", "Finished");
+  const finishedList = el("ul", "drafts");
+  finishedList.setAttribute("aria-label", "Finished pieces");
+  page.append(heading, start, list, finishedHeading, finishedList);
 
   const note = el("p", "keys");
   note.innerHTML = 'Drafts stay on this device. <a href="#two-devices">See two devices sync</a>.';
@@ -59,9 +62,11 @@ export function libraryPage(root: HTMLElement, store: Store, open: (id: string) 
   }
 
   function render() {
-    const drafts = listDrafts(store);
-    list.replaceChildren(...drafts.map(row));
-    if (drafts.length === 0) {
+    const { inProgress, finished } = partitionDrafts(listDrafts(store));
+    list.replaceChildren(...inProgress.map(row));
+    finishedList.replaceChildren(...finished.map(row));
+    finishedHeading.hidden = finishedList.hidden = finished.length === 0;
+    if (inProgress.length === 0 && finished.length === 0) {
       const empty = el("li", "draft-empty", "Nothing here yet. Your first one is allowed to be bad.");
       list.append(empty);
     }
