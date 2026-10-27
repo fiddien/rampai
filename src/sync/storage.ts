@@ -5,11 +5,33 @@ import type { Store } from "./library";
  * Drafts are saved on the device as Loro snapshots. This tracer bullet uses
  * localStorage; the native app will store them in its own encrypted files.
  */
+export function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+export const fromBase64 = (text: string): Uint8Array => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+
+/** A draft's saved snapshot from a store, without opening an editor on it. */
+export function readSnapshot(store: Pick<Store, "getItem">, key: string): Uint8Array | undefined {
+  try {
+    const saved = store.getItem(key);
+    return saved ? fromBase64(saved) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function writeSnapshot(store: Pick<Store, "setItem">, key: string, bytes: Uint8Array): void {
+  store.setItem(key, toBase64(bytes));
+}
+
 export function loadSnapshot(doc: LoroDoc, key: string): boolean {
   try {
     const saved = localStorage.getItem(key);
     if (!saved) return false;
-    doc.import(Uint8Array.from(atob(saved), (c) => c.charCodeAt(0)));
+    doc.import(fromBase64(saved));
     return true;
   } catch {
     return false;
@@ -33,11 +55,7 @@ export function autosave(doc: LoroDoc, key: string, onSaved: () => void = () => 
     if (!shouldSave()) return;
     try {
       const bytes = doc.export({ mode: "snapshot" });
-      let binary = "";
-      for (let i = 0; i < bytes.length; i += 0x8000) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-      }
-      localStorage.setItem(key, btoa(binary));
+      localStorage.setItem(key, toBase64(bytes));
       onSaved();
     } catch {
       // Storage can be full or blocked; the draft stays in memory.

@@ -112,6 +112,13 @@ export function createDraft(store: Store, now = Date.now()): DraftEntry {
   return entry;
 }
 
+/** List a draft that arrived from another device under the id it already has. */
+export function adoptDraft(store: Store, entry: DraftEntry): void {
+  const entries = listDrafts(store);
+  if (entries.some((d) => d.id === entry.id)) return;
+  write(store, [...entries, entry]);
+}
+
 export function updateDraft(store: Store, id: string, patch: Partial<Omit<DraftEntry, "id">>): void {
   const entries = listDrafts(store);
   const i = entries.findIndex((d) => d.id === id);

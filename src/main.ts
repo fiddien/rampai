@@ -13,6 +13,7 @@ import { loadSnapshot, autosave, deviceStore } from "./sync/storage";
 import { typedOnlyField } from "./ui/typedOnlyInput";
 import { welcomePage, recoveryPage, confirmPage, pairPage } from "./ui/onboarding";
 import { loadDeviceKey } from "./sync/keys";
+import { linkPage } from "./ui/link";
 import { buildToolbar, wordCount, MOD, ALT } from "./ui/toolbar";
 import { buildOutline } from "./ui/outline";
 import { libraryPage } from "./ui/library";
@@ -347,13 +348,19 @@ async function route() {
   const device = await loadDeviceKey(store);
   if (!device) return go("#/welcome");
 
+  if (hash === "#/link") return linkPage(root, store, device.key, device.source, go);
+
   const draftId = /^#\/draft\/([\w-]+)$/.exec(hash)?.[1];
   if (draftId && getDraft(store, draftId)) return void writingPage(root, draftId);
   libraryPage(root, store, (newId) => go(`#/draft/${newId}`));
-  if (device.source === "random") {
-    const note = el("p", "keys", 'This device is not linked to your others yet. <a href="#/welcome">Make recovery words</a> to link them.');
-    root.append(note);
-  }
+  const note = el(
+    "p",
+    "keys",
+    device.source === "random"
+      ? 'This device is not linked to your others yet. <a href="#/welcome">Make recovery words</a> to link them.'
+      : 'Have another device with the same recovery words? <a href="#/link">Link it</a> to share your drafts.',
+  );
+  root.append(note);
 }
 let routed = false;
 window.addEventListener("hashchange", route);

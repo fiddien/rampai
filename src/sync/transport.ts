@@ -85,7 +85,7 @@ export class MemoryLink {
 }
 
 /** Wraps a transport so every message is sealed with the shared key, in order. */
-export function encrypted(inner: Transport, key: CryptoKey): Transport {
+export function encrypted(inner: Transport, key: CryptoKey, onRejected: () => void = () => {}): Transport {
   let sending = Promise.resolve();
   let receiving = Promise.resolve();
   return {
@@ -100,6 +100,7 @@ export function encrypted(inner: Transport, key: CryptoKey): Transport {
           } catch {
             // A message that fails to open was tampered with or sealed with
             // another key. It is dropped, never applied.
+            onRejected();
           }
         });
       });
