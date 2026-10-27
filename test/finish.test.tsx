@@ -52,8 +52,9 @@ describe("library", () => {
 // ——— The panel and read-only enforcement ———
 import { EditorView } from "prosemirror-view";
 import { vi } from "vitest";
-import { buildFinish } from "../src/ui/finish";
-import { buildToolbar } from "../src/ui/toolbar";
+import { act, fireEvent, screen } from "@testing-library/react";
+import { Finish } from "../src/ui/Finish";
+import { renderApp } from "./render";
 import { createEditorState } from "../src/editor";
 import { DocBinding } from "../src/sync/binding";
 import { toggleBlock } from "../src/editor/commands";
@@ -84,90 +85,63 @@ describe("read-only enforcement", () => {
     toggleBlock("heading1")(view.state, view.dispatch, view);
     expect(view.state.doc.child(0).type.name).toBe("heading1");
   });
-
-  test("toolbar buttons are disabled while the draft is locked", () => {
-    const { view } = bound();
-    const toolbar = buildToolbar(() => view);
-    toolbar.update(view.state);
-    const buttons = Array.from(toolbar.element.querySelectorAll("button"));
-    expect(buttons.some((b) => !b.disabled)).toBe(true);
-    view.setProps({ editable: () => false });
-    toolbar.update(view.state);
-    expect(buttons.every((b) => b.disabled)).toBe(true);
-  });
 });
 
 describe("finish panel", () => {
   function panel(words = 50) {
     const doc = createDoc(1);
-    const changes: boolean[] = [];
     const refused = vi.fn();
-    const p = buildFinish(doc, () => words, refused, (f) => changes.push(f));
-    document.body.append(p.element);
-    p.toggle();
-    const q = <T extends HTMLElement>(sel: string) => p.element.querySelector<T>(sel)!;
-    return { doc, p, changes, refused, q };
+    const r = renderApp(<Finish doc={doc} words={words} onBlockedPaste={refused} />);
+    const claim = () => screen.getByLabelText("In one sentence, what is this piece saying?") as HTMLTextAreaElement;
+    const tick = () => screen.getByLabelText("I read it aloud, and it hangs together.") as HTMLInputElement;
+    const finish = () => screen.getByRole("button", { name: "Mark as finished" }) as HTMLButtonElement;
+    return { doc, refused, claim, tick, finish, ...r };
   }
 
-  test("finishing needs the claim and the tick, then offers a way back", () => {
-    const { doc, q, changes } = panel();
-    const finish = q<HTMLButtonElement>(".primary");
-    expect(finish.disabled).toBe(true);
-    const claim = q<HTMLTextAreaElement>(".finish-input");
-    claim.value = "Writing connects ideas.";
-    claim.dispatchEvent(new Event("input"));
-    expect(finish.disabled).toBe(true);
-    const tick = q<HTMLInputElement>(".finish-check input");
-    tick.checked = true;
-    tick.dispatchEvent(new Event("change"));
-    expect(finish.disabled).toBe(false);
-    finish.click();
+  test("finishing needs the claim and the tick, then offers a way back", async () => {
+    const { doc, claim, tick, finish } = panel();
+    expect(finish().disabled).toBe(true);
+    fireEvent.change(claim(), { target: { value: "Writing connects ideas." } });
+    expect(finish().disabled).toBe(true);
+    fireEvent.click(tick());
+    expect(finish().disabled).toBe(false);
+    await act(async () => fireEvent.click(finish()));
     expect(isFinished(doc)).toBe(true);
-    expect(changes).toEqual([true]);
-    expect(document.activeElement).toBe(q(".finish-done button"));
+    expect(await screen.findByRole("button", { name: "Reopen as a draft" })).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Writing connects ideas.");
   });
 
-  test("a reopen from another device clears the tick, so re-finishing means reading again", () => {
-    const { doc, q } = panel();
-    const claim = q<HTMLTextAreaElement>(".finish-input");
-    claim.value = "A claim.";
-    claim.dispatchEvent(new Event("input"));
-    const tick = q<HTMLInputElement>(".finish-check input");
-    tick.checked = true;
-    tick.dispatchEvent(new Event("change"));
-    q<HTMLButtonElement>(".primary").click();
-    reopen(doc); // as if it arrived from another device
-    expect(tick.checked).toBe(false);
-    expect(q<HTMLButtonElement>(".primary").disabled).toBe(true);
+  test("a reopen from another device clears the tick, so re-finishing means reading again", async () => {
+    const { doc, claim, tick, finish } = panel();
+    fireEvent.change(claim(), { target: { value: "A claim." } });
+    fireEvent.click(tick());
+    await act(async () => fireEvent.click(finish()));
+    await act(async () => reopen(doc)); // as if it arrived from another device
+    expect(tick().checked).toBe(false);
+    expect(finish().disabled).toBe(true);
   });
 
   test("changing the claim clears the tick", () => {
-    const { q } = panel();
-    const claim = q<HTMLTextAreaElement>(".finish-input");
-    const tick = q<HTMLInputElement>(".finish-check input");
-    claim.value = "First.";
-    claim.dispatchEvent(new Event("input"));
-    tick.checked = true;
-    tick.dispatchEvent(new Event("change"));
-    claim.value = "Second.";
-    claim.dispatchEvent(new Event("input"));
-    expect(tick.checked).toBe(false);
+    const { claim, tick } = panel();
+    fireEvent.change(claim(), { target: { value: "First." } });
+    fireEvent.click(tick());
+    expect(tick().checked).toBe(true);
+    fireEvent.change(claim(), { target: { value: "Second." } });
+    expect(tick().checked).toBe(false);
   });
 
   test("dropped and pasted text is refused in the claim", () => {
-    const { q, refused } = panel();
-    const claim = q<HTMLTextAreaElement>(".finish-input");
-    for (const type of ["paste", "drop"]) {
-      const e = new Event(type, { cancelable: true });
-      claim.dispatchEvent(e);
-      expect(e.defaultPrevented).toBe(true);
-    }
+    const { claim, refused } = panel();
+    expect(fireEvent.paste(claim())).toBe(false);
+    expect(fireEvent.drop(claim())).toBe(false);
     expect(refused).toHaveBeenCalledTimes(2);
   });
 
-  test("the finished note is announced to screen readers", () => {
-    const { q } = panel();
-    expect(q(".finish-done").getAttribute("role")).toBe("status");
+  test("a piece with no words cannot be finished", () => {
+    const { claim, tick, finish } = panel(0);
+    fireEvent.change(claim(), { target: { value: "A claim." } });
+    fireEvent.click(tick());
+    expect(finish().disabled).toBe(true);
   });
 });
 

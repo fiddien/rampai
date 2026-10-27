@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { createDraft, deleteDraft, draftKey, getDraft, listDrafts, updateDraft } from "../src/sync/library";
 import { DEFAULT_TITLE, getTitle, setTitle } from "../src/sync/meta";
 import { createDoc } from "../src/sync/model";
-import { editedLabel } from "../src/ui/library";
+import { editedLabel } from "../src/ui/format";
 
 class MemoryStore {
   protected m = new Map<string, string>();

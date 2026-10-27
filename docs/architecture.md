@@ -28,9 +28,17 @@ Remote updates are imported into Loro, and the editor is patched with ProseMirro
 
 `test/binding.test.ts` covers the move-and-edit case, the caret, formatting, deletion during an edit, and thirty random concurrent sessions (typing, splitting, moving, deleting, retyping blocks, syncing at random points) that must converge.
 
+## The interface
+
+The interface is React 19 with **Mantine 9** components, chosen so that every page, whoever builds it, speaks the same visual and accessible vocabulary: buttons, inputs, modals, notifications, tables. A Mantine theme (`src/app/theme.ts`) carries Rampai's look: IBM Plex Sans for the interface, Newsreader for the writer's words and headings, an ink primary colour, one blue accent for links and focus, and Mantine's page colours pointed at the same CSS variables the writing surface uses, in light and dark. Only the Mantine stylesheets in use are imported (`src/mantine.css`); a page that starts using another component adds its file there.
+
+The app never reloads between pages. `src/app/router.ts` reads the address after `#`, and each page is a component that cleans up after itself when it unmounts: the editor is destroyed, autosave flushes and stops, tab channels close, listeners are removed. This is what lets a link between devices outlive a page change.
+
+ProseMirror keeps its own DOM. `useEditor` (`src/ui/useEditor.ts`) mounts it on a ref and binds it to the Loro document; React re-renders only what sits around it (toolbar, outline, word count) once per transaction. `useDocValue` reads a value from the Loro document and re-renders when the document changes, whether the change was typed here or arrived from another device.
+
 ## Typed only
 
-`src/editor/typedOnly.ts` refuses `paste`, drops from outside, and the `insertFromPaste`/`insertFromDrop`/`insertFromYank` input events. Dragging the writer's own text within the draft is still allowed. The rule trusts the writer; it is a speed bump against habit, not anti-cheat. A stricter focus mode for schools is a later idea.
+`src/editor/typedOnly.ts` refuses `paste`, drops from outside, and the `insertFromPaste`/`insertFromDrop`/`insertFromYank` input events. Dragging the writer's own text within the draft is still allowed. The rule trusts the writer; it is a speed bump against habit, not anti-cheat. A stricter focus mode for schools is a later idea. Plain text fields (the title, the claim) follow the same rule through `useTypedOnly` (`src/ui/typedOnly.ts`).
 
 ## Sync and encryption
 
