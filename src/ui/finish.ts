@@ -1,4 +1,5 @@
 import type { LoroDoc } from "loro-crdt";
+import { typedOnlyField } from "./typedOnlyInput";
 import { canFinish, finishedAt, getProposition, markFinished, reopen, setProposition } from "../sync/meta";
 
 export interface FinishPanel {
@@ -34,10 +35,7 @@ export function buildFinish(doc: LoroDoc, words: () => number, refusePaste: () =
   proposition.rows = 2;
   proposition.maxLength = 400;
   proposition.placeholder = "A topic is fine to begin with; a claim is better to end with.";
-  proposition.addEventListener("paste", (e) => {
-    e.preventDefault();
-    refusePaste();
-  });
+  typedOnlyField(proposition, refusePaste);
   const readRow = el("label", "finish-check");
   const aloud = el("input");
   aloud.type = "checkbox";
@@ -48,6 +46,7 @@ export function buildFinish(doc: LoroDoc, words: () => number, refusePaste: () =
 
   // Once finished: show the claim, and a way back.
   const done = el("div", "finish-done");
+  done.setAttribute("role", "status");
   const doneNote = el("p", "finish-note");
   const claim = el("blockquote", "finish-claim");
   const back = el("button", "tool", "Reopen as a draft");
@@ -70,6 +69,9 @@ export function buildFinish(doc: LoroDoc, words: () => number, refusePaste: () =
     }
     if (finished !== state.finished) {
       state.finished = finished;
+      // Each finish is its own read-aloud, so a remote reopen or a finish starts the check afresh.
+      aloud.checked = false;
+      finish.disabled = true;
       if (finished) element.hidden = false;
       onFinishedChange(finished);
     }
@@ -77,6 +79,8 @@ export function buildFinish(doc: LoroDoc, words: () => number, refusePaste: () =
 
   proposition.addEventListener("input", () => {
     setProposition(doc, proposition.value);
+    // The read-aloud applies to the claim as it stands now.
+    aloud.checked = false;
     refresh();
   });
   aloud.addEventListener("change", refresh);
@@ -84,11 +88,13 @@ export function buildFinish(doc: LoroDoc, words: () => number, refusePaste: () =
     if (!canFinish(proposition.value, words(), aloud.checked)) return;
     markFinished(doc);
     refresh();
+    back.focus();
   });
   back.addEventListener("click", () => {
     reopen(doc);
     aloud.checked = false;
     refresh();
+    proposition.focus();
   });
   doc.subscribe(refresh);
   refresh();

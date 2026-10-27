@@ -14,7 +14,7 @@ import { typedOnlyField } from "./ui/typedOnlyInput";
 import { buildToolbar, wordCount, MOD, ALT } from "./ui/toolbar";
 import { buildOutline } from "./ui/outline";
 import { libraryPage } from "./ui/library";
-import { buildFinish } from "./ui/finish";
+import { buildFinish, type FinishPanel } from "./ui/finish";
 import { draftKey, getDraft, updateDraft } from "./sync/library";
 import { getTitle, setTitle, isFinished } from "./sync/meta";
 
@@ -164,15 +164,23 @@ async function writingPage(root: HTMLElement, id: string) {
   finishButton.type = "button";
   finishButton.title = "Say what this piece claims, and mark it finished";
   finishButton.setAttribute("aria-pressed", "false");
-  const finish = buildFinish(doc, () => (view ? wordCount(view.state) : 0), refusePaste, (finished) => {
+  let finish!: FinishPanel;
+  const syncPressed = () => finishButton.setAttribute("aria-pressed", String(!!finish?.open));
+  finish = buildFinish(doc, () => (view ? wordCount(view.state) : 0), refusePaste, (finished) => {
     finishButton.textContent = finished ? "Finished" : "Finish";
     view?.setProps({ editable: () => !finished });
     title.readOnly = finished;
     document.body.classList.toggle("finished", finished);
+    // The toolbar and outline follow the draft's read-only state at once.
+    if (view) {
+      toolbar.update(view.state);
+      outline.update();
+    }
+    syncPressed();
   });
   finishButton.addEventListener("click", () => {
     finish.toggle();
-    finishButton.setAttribute("aria-pressed", String(finish.open));
+    syncPressed();
   });
   header.append(finishButton);
   page.append(finish.element);
