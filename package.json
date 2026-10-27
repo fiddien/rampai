@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@scure/bip39": "^2.4.0",
     "loro-crdt": "^1.17.1",
     "prosemirror-commands": "^1.7.2",
     "prosemirror-history": "^1.5.1",

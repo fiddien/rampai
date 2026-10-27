@@ -224,3 +224,25 @@ body.finished .ProseMirror { color: var(--soft); }
 
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .outline-title { font-weight: 400; margin: 0 0 6px; }
+
+/* Setting up devices */
+.onboarding .lede { font: 1.15rem/1.6 var(--f-write); }
+.onboarding p { max-width: 36rem; }
+.onboarding .soft { color: var(--soft); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0 8px; }
+.tool-text {
+  background: none; border: 1px solid var(--faint); border-radius: 6px; padding: 8px 14px;
+  cursor: pointer; font-size: 14px; color: var(--ink);
+}
+.tool-text:hover { background: var(--faint); }
+.tool-text.quiet { border-color: transparent; color: var(--soft); padding-left: 0; }
+.words { counter-reset: w; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 8px 16px; padding: 0; margin: 20px 0; max-width: 36rem; }
+.words li { counter-increment: w; font: 1.25rem/1.4 var(--f-write); border-bottom: 1px solid var(--faint); padding: 4px 0; }
+.words li::before { content: counter(w) ". "; font: 12px var(--f-ui); color: var(--soft); }
+.words-form { display: grid; gap: 14px; max-width: 24rem; margin: 16px 0; }
+.words-form label { display: grid; gap: 4px; color: var(--soft); font-size: 13px; }
+.words-form input {
+  font: 1.1rem var(--f-write); color: var(--ink); background: none;
+  border: 1px solid var(--faint); border-radius: 6px; padding: 8px 10px;
+}
+.form-message { min-height: 1.4em; margin: 0; color: var(--ink); font-size: 13px; }
