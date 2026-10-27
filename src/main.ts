@@ -9,7 +9,7 @@ import { createDoc } from "./sync/model";
 import { connect } from "./sync/peer";
 import { BroadcastChannelTransport, MemoryLink, encrypted, type Transport } from "./sync/transport";
 import { generateKey } from "./sync/crypto";
-import { loadSnapshot, autosave, deviceStore } from "./sync/storage";
+import { loadSnapshot, autosave, deviceStore, storagePersists } from "./sync/storage";
 import { typedOnlyField } from "./ui/typedOnlyInput";
 import { welcomePage, recoveryPage, confirmPage, pairPage } from "./ui/onboarding";
 import { loadDeviceKey } from "./sync/keys";
@@ -183,7 +183,7 @@ async function writingPage(root: HTMLElement, id: string) {
   const update = () => {
     if (!view) return;
     outline.update();
-    finish.update();
+    // The finish panel follows the document itself (doc.subscribe), so it is not refreshed here too.
     toolbar.update(view.state);
     const n = wordCount(view.state);
     words.textContent = `${n} ${n === 1 ? "word" : "words"}`;
@@ -198,12 +198,18 @@ async function writingPage(root: HTMLElement, id: string) {
     DRAFT_KEY,
     () => {
       status.textContent = "Saved on this device";
+      status.classList.remove("failed");
       status.classList.add("ok");
       updateDraft(store, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now(), finished: isFinished(doc) });
     },
     400,
     // If this draft was deleted from another tab, don't write it back.
     () => !!getDraft(store, id),
+    () => {
+      status.textContent = "Not saved: this device's storage is full or blocked";
+      status.classList.remove("ok");
+      status.classList.add("failed");
+    },
   );
   // Leaving the page (a link, Back, or closing the tab) must not drop the last words typed.
   window.addEventListener("pagehide", saver.flush);
@@ -325,7 +331,9 @@ function sessionStore(): Pick<Storage, "getItem" | "setItem" | "removeItem"> {
 
 async function route() {
   // Each page sets up its own replicas, so switching pages starts clean.
-  if (routed) {
+  // When this browser keeps nothing across a reload, the page is redrawn in
+  // place instead, so drafts kept in memory for this visit are not lost.
+  if (routed && storagePersists()) {
     location.reload();
     return;
   }
@@ -337,30 +345,40 @@ async function route() {
   const hash = location.hash;
   if (hash === "#two-devices") return void twoDevicesPage(root);
 
-  // Setting up devices is open to everyone, with or without a key.
+  // Setting up devices is open to everyone, with or without a key. A device
+  // that already has recovery words is warned before they are replaced.
+  const device = await loadDeviceKey(store);
   const session = sessionStore();
-  if (hash === "#/welcome") return welcomePage(root, store, session, go);
+  if (hash === "#/welcome") return welcomePage(root, store, session, go, device?.source);
   if (hash === "#/recovery") return recoveryPage(root, session, go);
   if (hash === "#/recovery/confirm") return confirmPage(root, store, session, go);
-  if (hash === "#/pair") return pairPage(root, store, go);
+  if (hash === "#/pair") return pairPage(root, store, go, device?.source);
 
-  // Everything else needs a key, so a first visit starts at the welcome.
-  const device = await loadDeviceKey(store);
-  if (!device) return go("#/welcome");
+  // Everything else needs a key, so a first visit starts at the welcome. When
+  // this browser keeps nothing across a reload, a key could never be kept, so
+  // the writer goes straight to writing (with a warning) instead of looping.
+  const persists = storagePersists();
+  if (!device && persists) return go("#/welcome");
 
-  if (hash === "#/link") return linkPage(root, store, device.key, device.source, go);
+  if (hash === "#/link") return device ? linkPage(root, store, device.key, device.source, go) : go("#/");
 
   const draftId = /^#\/draft\/([\w-]+)$/.exec(hash)?.[1];
   if (draftId && getDraft(store, draftId)) return void writingPage(root, draftId);
   libraryPage(root, store, (newId) => go(`#/draft/${newId}`));
-  const note = el(
-    "p",
-    "keys",
-    device.source === "random"
-      ? 'This device is not linked to your others yet. <a href="#/welcome">Make recovery words</a> to link them.'
-      : 'Have another device with the same recovery words? <a href="#/link">Link it</a> to share your drafts.',
-  );
-  root.append(note);
+  if (!persists) {
+    const warn = el("p", "keys", "This browser is not keeping anything Rampai saves, so your drafts will be lost when you close this tab. Allow site storage for Rampai to keep them.");
+    warn.setAttribute("role", "alert");
+    root.append(warn);
+  } else {
+    const note = el(
+      "p",
+      "keys",
+      device?.source === "passphrase"
+        ? 'Have another device with the same recovery words? <a href="#/link">Link it</a> to share your drafts.'
+        : 'This device is not linked to your others yet. <a href="#/welcome">Make recovery words</a> to link them.',
+    );
+    root.append(note);
+  }
 }
 let routed = false;
 window.addEventListener("hashchange", route);

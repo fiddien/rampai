@@ -10,6 +10,7 @@ This repository holds the first **tracer bullet**: a thin, working path through 
 - A home screen of drafts saved on the device. Every new draft is titled "My first bad draft", and the title can be changed in place and syncs between devices.
 - Finishing a piece: say in one sentence what it claims and confirm a read-aloud; the piece is then listed as finished and read-only until reopened.
 - Recovery words: a seven-word passphrase makes the key that keeps drafts private. A second device types the words and gets the same key. Setup is skippable.
+- Drag handles in the margin move a block with a mouse or a finger.
 - Link a device: two devices with the same recovery words swap a code each, then exchange every draft directly over WebRTC on the local network, sealed with the key.
 - Outline mode (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>): headings only, and whole sections move with their text.
 - The typed-only rule (paste and drop from outside are refused).

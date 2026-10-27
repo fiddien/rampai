@@ -170,3 +170,11 @@ describe("finish panel", () => {
     expect(q(".finish-done").getAttribute("role")).toBe("status");
   });
 });
+
+describe("claim", () => {
+  test("is stored without spaces at the ends", () => {
+    const doc = createDoc(1);
+    setProposition(doc, "  Writing is thinking.  ");
+    expect(getProposition(doc)).toBe("Writing is thinking.");
+  });
+});

@@ -7,8 +7,13 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text 
   return node;
 }
 
+/** Calendar days in the writer's own time zone, so 23:00 yesterday reads as "yesterday". */
 export function editedLabel(updatedAt: number, now = Date.now()): string {
-  const days = Math.floor((now - updatedAt) / 86_400_000);
+  const midnight = (t: number) => {
+    const d = new Date(t);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  };
+  const days = Math.round((midnight(now) - midnight(updatedAt)) / 86_400_000);
   if (days < 1) return "edited today";
   if (days === 1) return "edited yesterday";
   return `edited ${new Date(updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;

@@ -46,9 +46,18 @@ export interface Autosave {
 
 /**
  * Saves the draft shortly after it changes. `shouldSave` lets the caller skip a
- * save, for example when the draft was deleted in another tab.
+ * save, for example when the draft was deleted in another tab. `onFailed` is
+ * told when a save does not reach storage (full or blocked), so the writer is
+ * never shown "saved" for words that were not.
  */
-export function autosave(doc: LoroDoc, key: string, onSaved: () => void = () => {}, delayMs = 400, shouldSave: () => boolean = () => true): Autosave {
+export function autosave(
+  doc: LoroDoc,
+  key: string,
+  onSaved: () => void = () => {},
+  delayMs = 400,
+  shouldSave: () => boolean = () => true,
+  onFailed: (error: unknown) => void = () => {},
+): Autosave {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const save = () => {
     timer = undefined;
@@ -56,10 +65,12 @@ export function autosave(doc: LoroDoc, key: string, onSaved: () => void = () => 
     try {
       const bytes = doc.export({ mode: "snapshot" });
       localStorage.setItem(key, toBase64(bytes));
-      onSaved();
-    } catch {
-      // Storage can be full or blocked; the draft stays in memory.
+    } catch (error) {
+      // Storage can be full or blocked; the draft stays in memory, and the writer is told.
+      onFailed(error);
+      return;
     }
+    onSaved();
   };
   const unsubscribe = doc.subscribe(() => {
     clearTimeout(timer);
@@ -76,6 +87,21 @@ export function autosave(doc: LoroDoc, key: string, onSaved: () => void = () => 
       unsubscribe();
     },
   };
+}
+
+/**
+ * Whether this browser keeps what Rampai saves across a reload. It does not
+ * when storage is blocked (some privacy settings) or full.
+ */
+export function storagePersists(): boolean {
+  try {
+    const probe = "rampai:probe";
+    window.localStorage.setItem(probe, "1");
+    window.localStorage.removeItem(probe);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
