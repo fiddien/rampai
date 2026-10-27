@@ -3,6 +3,7 @@ import type { EditorState, Command } from "prosemirror-state";
 import { toggleMark } from "prosemirror-commands";
 import { schema } from "../editor/schema";
 import { moveBlock, toggleBlock } from "../editor/commands";
+import { countWords } from "../editor/words";
 
 const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 export const MOD = mac ? "⌘" : "Ctrl";
@@ -87,7 +88,7 @@ export function buildToolbar(getView: () => EditorView, compact = false): Toolba
     update(state) {
       for (const { tool, el } of buttons) {
         if (tool.active) el.setAttribute("aria-pressed", String(tool.active(state)));
-        el.disabled = !tool.command(state);
+        el.disabled = !getView().editable || !tool.command(state);
       }
     },
   };
@@ -95,5 +96,5 @@ export function buildToolbar(getView: () => EditorView, compact = false): Toolba
 
 export function wordCount(state: EditorState): number {
   const text = state.doc.textBetween(0, state.doc.content.size, " ", " ");
-  return (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
+  return countWords(text);
 }

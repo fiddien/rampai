@@ -43,7 +43,7 @@ Transports (`src/sync/transport.ts`) move opaque bytes:
 - `BroadcastChannelTransport` syncs tabs of one browser.
 - `MemoryLink` joins two simulated devices on one page, with an online switch that queues messages while offline.
 
-Drafts are saved on the device as Loro snapshots (`src/sync/storage.ts`, localStorage for now).
+Drafts are saved on the device as Loro snapshots (`src/sync/storage.ts`, localStorage for now), one per draft id. A draft's title lives in a `meta` map in its own document (`src/sync/meta.ts`), so it syncs; `src/sync/library.ts` keeps a small index of titles, word counts and edit times, only to draw the home screen. The index is a cache; the documents are the truth. The single draft of the first version is adopted into the library once.
 
 ## What comes next
 
@@ -51,6 +51,10 @@ Drafts are saved on the device as Loro snapshots (`src/sync/storage.ts`, localSt
 
 **Pairing and keys.** The web build keeps its key in localStorage, which is enough for a demo and not for real use. Pairing will derive the key from the passphrase with a memory-hard KDF and keep it in the platform keychain.
 
-**Next editor features**, in rough order: footnotes (an inline node whose body is its own Loro text), drag handles for blocks, Outline mode (headings only, reorderable), the whiteboard, books, and the AI reader as comments.
+**Finishing** (`src/sync/meta.ts`, `src/ui/finish.ts`) is the exit test from the design brief: the main proposition in one sentence, plus a read-aloud check. The proposition and a `finishedAt` time live in the draft's `meta` map, so they sync; the read-aloud check is asked each time and not stored. A finished piece is read-only until reopened: `DocBinding.dispatch` refuses every local edit while the editor is not editable, so no toolbar button, shortcut or outline move can change it. `finishedAt` is a last-writer-wins register, so a finish made offline can merge with edits from another device that its read-aloud never covered; the writer can reopen and finish again. The same test serves topic-first and claim-first writers.
+
+**Outline mode** (`src/editor/outline.ts`, `src/ui/outline.ts`) lists the headings. A section is a heading plus everything under it, up to the next heading of the same or a higher rank, so moving a section carries its subsections. Sections swap only with a sibling of the same level, which keeps a subsection inside its parent. A move is one replace of the two adjacent ranges with their blocks reordered; the blocks keep their ids, so the binding writes it to Loro as block moves and another device's concurrent edit follows the text (`test/outline.test.ts`).
+
+**Next editor features**, in rough order: footnotes (an inline node whose body is its own Loro text), drag handles for blocks, the whiteboard, books, and the AI reader as comments.
 
 **Game progress** syncs as an append-only event log in the same encrypted channel, so streaks and badges agree across devices.

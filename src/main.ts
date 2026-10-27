@@ -9,11 +9,17 @@ import { createDoc } from "./sync/model";
 import { connect } from "./sync/peer";
 import { BroadcastChannelTransport, MemoryLink, encrypted, type Transport } from "./sync/transport";
 import { generateKey, exportKey, importKey } from "./sync/crypto";
-import { loadSnapshot, autosave } from "./sync/storage";
+import { loadSnapshot, autosave, deviceStore } from "./sync/storage";
+import { typedOnlyField } from "./ui/typedOnlyInput";
 import { buildToolbar, wordCount, MOD, ALT } from "./ui/toolbar";
+import { buildOutline } from "./ui/outline";
+import { libraryPage } from "./ui/library";
+import { buildFinish, type FinishPanel } from "./ui/finish";
+import { draftKey, getDraft, updateDraft } from "./sync/library";
+import { getTitle, setTitle, isFinished } from "./sync/meta";
 
-const DRAFT_KEY = "rampai:draft:v1";
 const KEY_KEY = "rampai:key:v1";
+const store = deviceStore();
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", html = ""): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -68,7 +74,8 @@ function mountEditor(place: HTMLElement, doc: ReturnType<typeof createDoc>, init
 
 // ——— The writing page: one draft, saved on this device, synced across its tabs ———
 
-async function writingPage(root: HTMLElement) {
+async function writingPage(root: HTMLElement, id: string) {
+  const DRAFT_KEY = draftKey(id);
   let key: CryptoKey;
   try {
     const stored = localStorage.getItem(KEY_KEY);
@@ -82,9 +89,33 @@ async function writingPage(root: HTMLElement) {
   loadSnapshot(doc, DRAFT_KEY);
 
   const header = el("header", "toolbar chrome");
-  header.append(el("a", "brand", "<b>Rampai</b> · a gentle ramp to clear thinking"));
+  const brand = el("a", "brand", "<b>Rampai</b> · ‹ Drafts");
+  brand.href = "#/";
+  header.append(brand);
   const page = el("main", "page");
-  page.append(el("div", "draft-name chrome", "My first bad draft"));
+  const title = el("input", "draft-name chrome");
+  title.type = "text";
+  title.setAttribute("aria-label", "Title");
+  title.maxLength = 120;
+  title.value = getTitle(doc);
+  // Typed-only holds for the title too: no paste, no dropped text.
+  typedOnlyField(title, refusePaste);
+  // A blank title is only filled in with the default when the writer leaves the field.
+  title.addEventListener("input", () => title.value.trim() && setTitle(doc, title.value));
+  title.addEventListener("blur", () => {
+    setTitle(doc, title.value);
+    title.value = getTitle(doc);
+  });
+  title.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      view.focus();
+    }
+  });
+  doc.subscribe(() => {
+    if (document.activeElement !== title) title.value = getTitle(doc);
+  });
+  page.append(title);
   const surface = el("div");
   page.append(surface);
   page.append(
@@ -93,6 +124,7 @@ async function writingPage(root: HTMLElement) {
       "keys chrome",
       `Type <kbd>#</kbd> for a heading, <kbd>&gt;</kbd> for a quote, <kbd>-</kbd> for a list, then a space. ` +
         `<kbd>${ALT}</kbd> <kbd>↑</kbd> <kbd>↓</kbd> moves the block you're in. ` +
+        `<kbd>${MOD}</kbd> <kbd>Shift</kbd> <kbd>O</kbd> opens the outline, where whole sections move. ` +
         `<kbd>${MOD}</kbd> <kbd>B</kbd> and <kbd>${MOD}</kbd> <kbd>I</kbd> for bold and italic. ` +
         `Pasting is switched off on purpose. <a href="#two-devices">See two devices sync</a>.`,
     ),
@@ -108,23 +140,87 @@ async function writingPage(root: HTMLElement) {
   let view!: EditorView;
   const toolbar = buildToolbar(() => view);
   header.append(toolbar.element);
+  const outline = buildOutline(() => view);
+  const outlineButton = el("button", "tool", "Outline");
+  outlineButton.type = "button";
+  outlineButton.title = `Show only the headings, and move whole sections (${MOD}+Shift+O)`;
+  outlineButton.setAttribute("aria-pressed", "false");
+  const toggleOutline = () => {
+    outline.toggle();
+    outlineButton.setAttribute("aria-pressed", String(!outline.element.hidden));
+  };
+  outlineButton.addEventListener("click", toggleOutline);
+  header.append(outlineButton);
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "o") {
+      e.preventDefault();
+      toggleOutline();
+    }
+  });
+  root.append(outline.element);
+
+  // Finishing: say what the piece claims and read it aloud. A finished piece is read-only until reopened.
+  const finishButton = el("button", "tool", "Finish");
+  finishButton.type = "button";
+  finishButton.title = "Say what this piece claims, and mark it finished";
+  finishButton.setAttribute("aria-pressed", "false");
+  let finish!: FinishPanel;
+  const syncPressed = () => finishButton.setAttribute("aria-pressed", String(!!finish?.open));
+  finish = buildFinish(doc, () => (view ? wordCount(view.state) : 0), refusePaste, (finished) => {
+    finishButton.textContent = finished ? "Finished" : "Finish";
+    view?.setProps({ editable: () => !finished });
+    title.readOnly = finished;
+    document.body.classList.toggle("finished", finished);
+    // The toolbar and outline follow the draft's read-only state at once.
+    if (view) {
+      toolbar.update(view.state);
+      outline.update();
+    }
+    syncPressed();
+  });
+  finishButton.addEventListener("click", () => {
+    finish.toggle();
+    syncPressed();
+  });
+  header.append(finishButton);
+  page.append(finish.element);
   const update = () => {
     if (!view) return;
+    outline.update();
+    // The finish panel follows the document itself (doc.subscribe), so it is not refreshed here too.
     toolbar.update(view.state);
     const n = wordCount(view.state);
     words.textContent = `${n} ${n === 1 ? "word" : "words"}`;
   };
   const mounted = mountEditor(surface, doc, undefined, update);
   view = mounted.view;
+  view.setProps({ editable: () => !isFinished(doc) });
   update();
 
-  autosave(doc, DRAFT_KEY, () => {
-    status.textContent = "Saved on this device";
-    status.classList.add("ok");
-  });
+  const saver = autosave(
+    doc,
+    DRAFT_KEY,
+    () => {
+      status.textContent = "Saved on this device";
+      status.classList.remove("failed");
+      status.classList.add("ok");
+      updateDraft(store, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now(), finished: isFinished(doc) });
+    },
+    400,
+    // If this draft was deleted from another tab, don't write it back.
+    () => !!getDraft(store, id),
+    () => {
+      status.textContent = "Not saved: this device's storage is full or blocked";
+      status.classList.remove("ok");
+      status.classList.add("failed");
+    },
+  );
+  // Leaving the page (a link, Back, or closing the tab) must not drop the last words typed.
+  window.addEventListener("pagehide", saver.flush);
+  document.addEventListener("visibilitychange", () => document.hidden && saver.flush());
   // Other tabs of this browser are other replicas of the same draft.
   if ("BroadcastChannel" in window) {
-    connect(mounted.binding, encrypted(new BroadcastChannelTransport("rampai:draft"), key));
+    connect(mounted.binding, encrypted(new BroadcastChannelTransport(`rampai:draft:${id}`), key));
   }
   view.focus();
 }
@@ -236,8 +332,10 @@ function route() {
   const root = document.getElementById("app")!;
   root.replaceChildren();
   document.body.classList.remove("typing");
+  const draftId = /^#\/draft\/([\w-]+)$/.exec(location.hash)?.[1];
   if (location.hash === "#two-devices") void twoDevicesPage(root);
-  else void writingPage(root);
+  else if (draftId && getDraft(store, draftId)) void writingPage(root, draftId);
+  else libraryPage(root, store, (newId) => (location.hash = `#/draft/${newId}`));
 }
 let routed = false;
 window.addEventListener("hashchange", route);
