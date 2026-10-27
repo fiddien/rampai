@@ -36,6 +36,27 @@ describe("autosave", () => {
     saver.flush();
     expect(localStorage.getItem("k")).toBeNull();
   });
+
+  test("a failed save reports failure and never reports saved", () => {
+    vi.useFakeTimers();
+    const doc = createDoc(1);
+    const saved = vi.fn();
+    const failed = vi.fn();
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const saver = autosave(doc, "k", saved, 400, () => true, failed);
+    doc.getText("t").insert(0, "hi");
+    doc.commit();
+    saver.flush();
+    expect(failed).toHaveBeenCalledOnce();
+    expect(saved).not.toHaveBeenCalled();
+    spy.mockRestore();
+    doc.getText("t").insert(2, "!");
+    doc.commit();
+    saver.flush();
+    expect(saved).toHaveBeenCalledOnce();
+  });
 });
 
 describe("deviceStore", () => {

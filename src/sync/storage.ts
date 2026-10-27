@@ -24,9 +24,18 @@ export interface Autosave {
 
 /**
  * Saves the draft shortly after it changes. `shouldSave` lets the caller skip a
- * save, for example when the draft was deleted in another tab.
+ * save, for example when the draft was deleted in another tab. `onFailed` is
+ * told when a save does not reach storage (full or blocked), so the writer is
+ * never shown "saved" for words that were not.
  */
-export function autosave(doc: LoroDoc, key: string, onSaved: () => void = () => {}, delayMs = 400, shouldSave: () => boolean = () => true): Autosave {
+export function autosave(
+  doc: LoroDoc,
+  key: string,
+  onSaved: () => void = () => {},
+  delayMs = 400,
+  shouldSave: () => boolean = () => true,
+  onFailed: (error: unknown) => void = () => {},
+): Autosave {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const save = () => {
     timer = undefined;
@@ -38,10 +47,12 @@ export function autosave(doc: LoroDoc, key: string, onSaved: () => void = () => 
         binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       }
       localStorage.setItem(key, btoa(binary));
-      onSaved();
-    } catch {
-      // Storage can be full or blocked; the draft stays in memory.
+    } catch (error) {
+      // Storage can be full or blocked; the draft stays in memory, and the writer is told.
+      onFailed(error);
+      return;
     }
+    onSaved();
   };
   const unsubscribe = doc.subscribe(() => {
     clearTimeout(timer);
