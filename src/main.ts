@@ -173,12 +173,18 @@ async function writingPage(root: HTMLElement, id: string) {
     DRAFT_KEY,
     () => {
       status.textContent = "Saved on this device";
+      status.classList.remove("failed");
       status.classList.add("ok");
       updateDraft(store, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now() });
     },
     400,
     // If this draft was deleted from another tab, don't write it back.
     () => !!getDraft(store, id),
+    () => {
+      status.textContent = "Not saved: this device's storage is full or blocked";
+      status.classList.remove("ok");
+      status.classList.add("failed");
+    },
   );
   // Leaving the page (a link, Back, or closing the tab) must not drop the last words typed.
   window.addEventListener("pagehide", saver.flush);

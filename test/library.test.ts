@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { createDraft, deleteDraft, draftKey, getDraft, listDrafts, updateDraft } from "../src/sync/library";
 import { DEFAULT_TITLE, getTitle, setTitle } from "../src/sync/meta";
 import { createDoc } from "../src/sync/model";
+import { editedLabel } from "../src/ui/library";
 
 class MemoryStore {
   protected m = new Map<string, string>();
@@ -117,5 +118,20 @@ describe("title", () => {
     expect(getTitle(b)).toBe("On ramps");
     setTitle(a, "   ");
     expect(getTitle(a)).toBe(DEFAULT_TITLE);
+  });
+});
+
+describe("small things", () => {
+  test("titles are stored without spaces at the ends", () => {
+    const doc = createDoc(1);
+    setTitle(doc, "  On ramps  ");
+    expect(getTitle(doc)).toBe("On ramps");
+  });
+
+  test("the edited label counts calendar days, not 24-hour periods", () => {
+    const lateYesterday = new Date(2026, 9, 27, 23, 0).getTime();
+    const earlyToday = new Date(2026, 9, 28, 8, 0).getTime();
+    expect(editedLabel(lateYesterday, earlyToday)).toBe("edited yesterday");
+    expect(editedLabel(earlyToday, new Date(2026, 9, 28, 22, 0).getTime())).toBe("edited today");
   });
 });

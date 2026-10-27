@@ -119,6 +119,8 @@ body.typing .chrome:hover, body.typing .chrome:focus-within { opacity: 1; }
 .footer-inner .spacer { margin-left: auto; }
 .status::before { content: "● "; color: var(--faint); }
 .status.ok::before { color: #3a9a6a; }
+.status.failed { color: var(--ink); }
+.status.failed::before { color: #c2412d; }
 
 .toast {
   position: fixed; left: 50%; bottom: 64px; transform: translate(-50%, 12px);
