@@ -14,7 +14,9 @@ import { typedOnlyField } from "./ui/typedOnlyInput";
 import { welcomePage, recoveryPage, confirmPage, pairPage } from "./ui/onboarding";
 import { loadDeviceKey } from "./sync/keys";
 import { linkPage } from "./ui/link";
-import { buildToolbar, wordCount, MOD, ALT } from "./ui/toolbar";
+import { backBar } from "./ui/nav";
+import { buildShortcuts } from "./ui/shortcuts";
+import { buildToolbar, wordCount, MOD } from "./ui/toolbar";
 import { buildOutline } from "./ui/outline";
 import { libraryPage } from "./ui/library";
 import { buildFinish, type FinishPanel } from "./ui/finish";
@@ -87,14 +89,14 @@ async function writingPage(root: HTMLElement, id: string) {
   const doc = createDoc();
   loadSnapshot(doc, DRAFT_KEY);
 
-  const header = el("header", "toolbar chrome");
-  const brand = el("a", "brand", "<b>Rampai</b> · ‹ Drafts");
-  brand.href = "#/";
-  header.append(brand);
+  const header = backBar();
   const page = el("main", "page");
-  const title = el("input", "draft-name chrome");
+  const titleRow = el("div", "title-row chrome");
+  const title = el("input", "draft-name");
   title.type = "text";
   title.setAttribute("aria-label", "Title");
+  title.placeholder = "Give it a title";
+  title.title = "Click to rename this draft";
   title.maxLength = 120;
   title.value = getTitle(doc);
   // Typed-only holds for the title too: no paste, no dropped text.
@@ -114,27 +116,16 @@ async function writingPage(root: HTMLElement, id: string) {
   doc.subscribe(() => {
     if (document.activeElement !== title) title.value = getTitle(doc);
   });
-  page.append(title);
+  // Nothing sits at the bottom of the page. The count shares the title's line, and a save is silent
+  // unless it failed: no news is good news.
+  const words = el("span", "count");
+  const status = el("span", "save-problem");
+  status.setAttribute("role", "alert");
+  titleRow.append(title, words, status);
+  page.append(titleRow);
   const surface = el("div");
   page.append(surface);
-  page.append(
-    el(
-      "div",
-      "keys chrome",
-      `Type <kbd>#</kbd> for a heading, <kbd>&gt;</kbd> for a quote, <kbd>-</kbd> for a list, then a space. ` +
-        `<kbd>${ALT}</kbd> <kbd>↑</kbd> <kbd>↓</kbd> moves the block you're in. ` +
-        `<kbd>${MOD}</kbd> <kbd>Shift</kbd> <kbd>O</kbd> opens the outline, where whole sections move. ` +
-        `<kbd>${MOD}</kbd> <kbd>B</kbd> and <kbd>${MOD}</kbd> <kbd>I</kbd> for bold and italic. ` +
-        `Pasting is switched off on purpose. <a href="#two-devices">See two devices sync</a>.`,
-    ),
-  );
-  const footer = el("footer", "footer chrome");
-  const inner = el("div", "footer-inner");
-  const words = el("span");
-  const status = el("span", "status", "Not saved yet");
-  inner.append(words, el("span", "spacer"), status);
-  footer.append(inner);
-  root.append(header, page, footer);
+  root.append(header, page);
 
   let view!: EditorView;
   const toolbar = buildToolbar(() => view);
@@ -168,7 +159,7 @@ async function writingPage(root: HTMLElement, id: string) {
   finish = buildFinish(doc, () => (view ? wordCount(view.state) : 0), refusePaste, (finished) => {
     finishButton.textContent = finished ? "Finished" : "Finish";
     view?.setProps({ editable: () => !finished });
-    title.readOnly = finished;
+    // The title stays editable: renaming a finished piece does not change what it says.
     document.body.classList.toggle("finished", finished);
     // The toolbar and outline follow the draft's read-only state at once.
     if (view) {
@@ -182,7 +173,19 @@ async function writingPage(root: HTMLElement, id: string) {
     syncPressed();
   });
   header.append(finishButton);
-  page.append(finish.element);
+  // The panel opens under the title, above the draft; nothing is added below the writing.
+  titleRow.after(finish.element);
+
+  // Key hints live in a panel, so nothing sits under the draft but the draft.
+  const shortcuts = buildShortcuts();
+  header.append(shortcuts.button);
+  root.append(shortcuts.dialog);
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "/") {
+      e.preventDefault();
+      shortcuts.open();
+    }
+  });
   const update = () => {
     if (!view) return;
     outline.update();
@@ -200,9 +203,8 @@ async function writingPage(root: HTMLElement, id: string) {
     doc,
     DRAFT_KEY,
     () => {
-      status.textContent = "Saved on this device";
-      status.classList.remove("failed");
-      status.classList.add("ok");
+      status.textContent = "";
+      words.title = "Saved on this device";
       updateDraft(store, id, { title: getTitle(doc), words: wordCount(view.state), updatedAt: Date.now(), finished: isFinished(doc) });
     },
     400,
@@ -210,8 +212,7 @@ async function writingPage(root: HTMLElement, id: string) {
     () => !!getDraft(store, id),
     () => {
       status.textContent = "Not saved: this device's storage is full or blocked";
-      status.classList.remove("ok");
-      status.classList.add("failed");
+      words.title = "";
     },
   );
   // Leaving the page (a link, Back, or closing the tab) must not drop the last words typed.
@@ -353,8 +354,8 @@ async function route() {
   const device = await loadDeviceKey(store);
   const session = sessionStore();
   if (hash === "#/welcome") return welcomePage(root, store, session, go, device?.source);
-  if (hash === "#/recovery") return recoveryPage(root, session, go);
-  if (hash === "#/recovery/confirm") return confirmPage(root, store, session, go);
+  if (hash === "#/recovery") return recoveryPage(root, session, go, device?.source);
+  if (hash === "#/recovery/confirm") return confirmPage(root, store, session, go, device?.source);
   if (hash === "#/pair") return pairPage(root, store, go, device?.source);
 
   // Everything else needs a key, so a first visit starts at the welcome. When
@@ -367,20 +368,11 @@ async function route() {
 
   const draftId = /^#\/draft\/([\w-]+)$/.exec(hash)?.[1];
   if (draftId && getDraft(store, draftId)) return void writingPage(root, draftId);
-  libraryPage(root, store, (newId) => go(`#/draft/${newId}`));
+  libraryPage(root, store, (newId) => go(`#/draft/${newId}`), { wordsMissing: device?.source !== "passphrase" });
   if (!persists) {
     const warn = el("p", "keys", "This browser is not keeping anything Rampai saves, so your drafts will be lost when you close this tab. Allow site storage for Rampai to keep them.");
     warn.setAttribute("role", "alert");
-    root.append(warn);
-  } else {
-    const note = el(
-      "p",
-      "keys",
-      device?.source === "passphrase"
-        ? 'Have another device with the same recovery words? <a href="#/link">Link it</a> to share your drafts.'
-        : 'This device is not linked to your others yet. <a href="#/welcome">Make recovery words</a> to link them.',
-    );
-    root.append(note);
+    root.querySelector("header")?.after(warn);
   }
 }
 let routed = false;
