@@ -36,8 +36,9 @@ export function getProposition(doc: LoroDoc): string {
 
 export function setProposition(doc: LoroDoc, proposition: string): void {
   const meta = doc.getMap("meta");
-  if (getProposition(doc) === proposition) return;
-  meta.set("proposition", proposition);
+  const next = proposition.trim();
+  if (getProposition(doc) === next) return;
+  meta.set("proposition", next);
   doc.commit({ origin: "local" });
 }
 

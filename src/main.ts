@@ -187,7 +187,7 @@ async function writingPage(root: HTMLElement, id: string) {
   const update = () => {
     if (!view) return;
     outline.update();
-    finish.update();
+    // The finish panel follows the document itself (doc.subscribe), so it is not refreshed here too.
     toolbar.update(view.state);
     const n = wordCount(view.state);
     words.textContent = `${n} ${n === 1 ? "word" : "words"}`;
