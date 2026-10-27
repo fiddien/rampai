@@ -67,10 +67,14 @@ body.typing .chrome:hover, body.typing .chrome:focus-within { opacity: 1; }
 
 .page { max-width: 44rem; margin: 0 auto; }
 .draft-name {
-  display: block; width: 100%; font: inherit; font-size: 13px; color: var(--soft);
-  background: none; border: 0; border-radius: 4px; padding: 2px 0; margin: 28px 0 8px;
+  display: block; width: 100%; font: 500 1.15rem/1.4 var(--f-write); color: var(--ink);
+  background: none; border: 0; border-bottom: 1px dashed transparent; border-radius: 0;
+  padding: 2px 0; margin: 28px 0 8px; cursor: text; text-overflow: ellipsis;
 }
-.draft-name:hover, .draft-name:focus { color: var(--ink); }
+.draft-name::placeholder { color: var(--soft); font-style: italic; }
+.draft-name:hover { border-bottom-color: var(--faint); }
+.draft-name:focus { outline: none; border-bottom: 1px solid var(--accent); }
+.draft-name:read-only { cursor: default; border-bottom-color: transparent; }
 
 /* The writing surface */
 .ProseMirror {

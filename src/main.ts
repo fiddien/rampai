@@ -92,6 +92,8 @@ async function writingPage(root: HTMLElement, id: string) {
   const title = el("input", "draft-name");
   title.type = "text";
   title.setAttribute("aria-label", "Title");
+  title.placeholder = "Give it a title";
+  title.title = "Click to rename this draft";
   title.maxLength = 120;
   title.value = getTitle(doc);
   // Typed-only holds for the title too: no paste, no dropped text.
