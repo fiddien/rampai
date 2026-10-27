@@ -15,6 +15,7 @@ import { welcomePage, recoveryPage, confirmPage, pairPage } from "./ui/onboardin
 import { loadDeviceKey } from "./sync/keys";
 import { linkPage } from "./ui/link";
 import { backBar } from "./ui/nav";
+import { backupPage } from "./ui/backup";
 import { buildShortcuts } from "./ui/shortcuts";
 import { buildToolbar, wordCount, MOD } from "./ui/toolbar";
 import { buildOutline } from "./ui/outline";
@@ -353,7 +354,7 @@ async function route() {
   // that already has recovery words is warned before they are replaced.
   const device = await loadDeviceKey(store);
   const session = sessionStore();
-  if (hash === "#/welcome") return welcomePage(root, store, session, go, device?.source);
+  if (hash === "#/welcome") return welcomePage(root, store, session, go, device?.source, device?.key);
   if (hash === "#/recovery") return recoveryPage(root, session, go, device?.source);
   if (hash === "#/recovery/confirm") return confirmPage(root, store, session, go, device?.source);
   if (hash === "#/pair") return pairPage(root, store, go, device?.source);
@@ -365,6 +366,7 @@ async function route() {
   if (!device && persists) return go("#/welcome");
 
   if (hash === "#/link") return device ? linkPage(root, store, device.key, device.source) : go("#/");
+  if (hash === "#/backup") return device ? backupPage(root, store, device.key, device.source) : go("#/");
 
   const draftId = /^#\/draft\/([\w-]+)$/.exec(hash)?.[1];
   if (draftId && getDraft(store, draftId)) return void writingPage(root, draftId);

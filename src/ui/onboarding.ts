@@ -1,5 +1,5 @@
 import { generateKey } from "../sync/crypto";
-import { deriveKey, saveDeviceKey, type KeySource } from "../sync/keys";
+import { deriveKey, saveDeviceKey, wordsMatchKey, type KeySource } from "../sync/keys";
 import { navBar } from "./nav";
 import { checkPassphrase, confirmMatches, confirmPositions, generatePassphrase } from "../sync/passphrase";
 
@@ -63,9 +63,11 @@ const pending = (session: Pick<Storage, "getItem">): string[] | undefined => {
  * devices. New words would cut it off from them, so replacing them is offered
  * only behind a plain warning, never as part of the ordinary welcome.
  */
-function guardExistingWords(page: HTMLElement, go: (hash: string) => void, proceed: () => void) {
+function guardExistingWords(page: HTMLElement, go: (hash: string) => void, proceed: () => void, heading?: string) {
+  // Under its own heading (after the words check) this is a quiet section, not the page's lede.
+  if (heading) page.append(el("h2", "home-sub", heading));
   page.append(
-    el("p", "lede", "This device already has recovery words, and is linked to your other devices by them."),
+    el("p", heading ? "" : "lede", "This device already has recovery words, and is linked to your other devices by them."),
     el(
       "p",
       "",
@@ -73,8 +75,9 @@ function guardExistingWords(page: HTMLElement, go: (hash: string) => void, proce
     ),
   );
   const actions = el("div", "actions");
+  // The bar above already leads back to the drafts; under a heading, only the replacing is offered.
+  if (!heading) actions.append(button("Back to my drafts", true, () => go("#/")));
   actions.append(
-    button("Back to my drafts", true, () => go("#/")),
     button("Replace this device's recovery words", false, () => {
       if (confirm("Replace the recovery words on this device? It will stop syncing with your other devices until they use the same new words.")) proceed();
     }),
@@ -82,13 +85,63 @@ function guardExistingWords(page: HTMLElement, go: (hash: string) => void, proce
   page.append(actions);
 }
 
-export function welcomePage(root: HTMLElement, store: Store, session: Store, go: (hash: string) => void, existing?: KeySource) {
+/**
+ * The words are never stored, so they cannot be shown again. What a writer can
+ * do is check that the words they wrote down make this device's key.
+ */
+function checkWordsForm(page: HTMLElement, deviceKey: CryptoKey) {
+  const part = el("section", "backup-part");
+  part.setAttribute("aria-labelledby", "check-heading");
+  const heading = el("h2", "home-sub", "Check the words you wrote down");
+  heading.id = "check-heading";
+  const note = el("p", "soft", "Rampai never keeps your words, so it cannot show them again. Type them here to check that the ones you wrote down are right.");
+  const form = el("form", "words-form");
+  const label = el("label", "", "Recovery words");
+  const input = el("input");
+  input.type = "text";
+  input.autocomplete = "off";
+  input.autocapitalize = "none";
+  input.spellcheck = false;
+  input.placeholder = "seven words, separated by spaces";
+  label.append(input);
+  const message = el("p", "form-message");
+  message.setAttribute("role", "status");
+  const submit = el("button", "primary", "Check");
+  submit.type = "submit";
+  form.append(label, message, submit);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const check = checkPassphrase(input.value);
+    if (!check.ok) {
+      message.textContent = check.problem ?? "";
+      return;
+    }
+    submit.disabled = true;
+    message.textContent = "Checking…";
+    const right = await wordsMatchKey(check.words, deviceKey);
+    message.textContent = right
+      ? "These are the right words for this device. Keep them safe."
+      : "These words make a different key from this device's. Compare them with what you wrote down, word by word.";
+    if (right) input.value = "";
+    submit.disabled = false;
+  });
+  part.append(heading, note, form);
+  page.append(part);
+}
+
+export function welcomePage(root: HTMLElement, store: Store, session: Store, go: (hash: string) => void, existing?: KeySource, deviceKey?: CryptoKey) {
   if (existing === "passphrase") {
     const page = shell(root, "Recovery words", existing);
-    guardExistingWords(page, go, () => {
-      root.replaceChildren();
-      welcomePage(root, store, session, go);
-    });
+    if (deviceKey) checkWordsForm(page, deviceKey);
+    guardExistingWords(
+      page,
+      go,
+      () => {
+        root.replaceChildren();
+        welcomePage(root, store, session, go);
+      },
+      deviceKey ? "Replace them" : undefined,
+    );
     return;
   }
   const page = shell(root, "Welcome", existing);
@@ -97,7 +150,7 @@ export function welcomePage(root: HTMLElement, store: Store, session: Store, go:
     el(
       "p",
       "",
-      "To link your devices, Rampai gives you seven recovery words. They make the key that keeps your drafts private, and they are the only way to add another device. There is no copy anywhere else, so keep your drafts on at least one device.",
+      "To link your devices, Rampai gives you seven recovery words. They make the key that keeps your drafts private, and they are the only way to add another device or open a backup. There is no copy of your drafts anywhere else, so keep them on at least one device, or in a backup.",
     ),
   );
   const actions = el("div", "actions");

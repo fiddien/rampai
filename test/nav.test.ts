@@ -7,15 +7,16 @@ import { buildToolbar } from "../src/ui/toolbar";
 import { buildShortcuts } from "../src/ui/shortcuts";
 
 describe("navigation bar", () => {
-  test("offers the three places, in order, and marks only the current page", () => {
+  test("offers the four places, in order, and marks only the current page", () => {
     const bar = navBar("link");
     const links = Array.from(bar.querySelectorAll<HTMLAnchorElement>("nav a"));
     expect(links.map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
       ["Drafts", "#/"],
       ["Link a device", "#/link"],
+      ["Backup", "#/backup"],
       ["Recovery words", "#/welcome"],
     ]);
-    expect(links.map((a) => a.getAttribute("aria-current"))).toEqual([null, "page", null]);
+    expect(links.map((a) => a.getAttribute("aria-current"))).toEqual([null, "page", null, null]);
     expect(bar.querySelector(".brand")!.getAttribute("href")).toBe("#/");
   });
 

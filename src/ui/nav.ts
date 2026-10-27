@@ -1,8 +1,9 @@
-export type NavItem = "drafts" | "link" | "words";
+export type NavItem = "drafts" | "link" | "backup" | "words";
 
 const ITEMS: { id: NavItem; label: string; href: string }[] = [
   { id: "drafts", label: "Drafts", href: "#/" },
   { id: "link", label: "Link a device", href: "#/link" },
+  { id: "backup", label: "Backup", href: "#/backup" },
   { id: "words", label: "Recovery words", href: "#/welcome" },
 ];
 
@@ -14,8 +15,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text 
 }
 
 /**
- * The bar on every page except the writing page: the wordmark, and the three
- * places a writer goes. The current page is marked for sight and for screen
+ * The bar on every page except the writing page: the wordmark, and the places a writer goes. The current page is marked for sight and for screen
  * readers; a small dot on Recovery words says this device has none yet.
  */
 export function navBar(active?: NavItem, opts: { wordsMissing?: boolean } = {}): HTMLElement {
