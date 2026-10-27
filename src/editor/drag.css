@@ -9,7 +9,9 @@
 }
 .drag-handle::before { content: "⠿"; font: 14px/1 var(--f-ui); }
 .drag-handle:hover { background: var(--faint); }
-.ProseMirror > *:hover > .drag-handle, .drag-handle:focus-visible, .ProseMirror > .current > .drag-handle { opacity: 0.7; }
+.ProseMirror > *:hover > .drag-handle, .ProseMirror > .current > .drag-handle { opacity: 0.7; }
+/* A finished piece is read-only, so nothing invites a drag. */
+body.finished .drag-handle, .ProseMirror[contenteditable="false"] .drag-handle { display: none; }
 @media (hover: none) { .drag-handle { opacity: 0.45; } }
 .ProseMirror > .dragging { opacity: 0.45; }
 .ProseMirror > .drop-before { box-shadow: 0 -2px 0 var(--accent); }

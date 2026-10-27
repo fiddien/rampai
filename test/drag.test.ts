@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, test } from "vitest";
-import { dropIndex, moveBlockTo } from "../src/editor/drag";
+import { dropIndex, edgeScroll, moveBlockTo } from "../src/editor/drag";
 import { device, blocks, syncPair, blockStart, cursor, type } from "./helpers";
 import { blocksOf } from "../src/sync/model";
 
@@ -51,5 +51,15 @@ describe("moveBlockTo", () => {
     expect(blocks(a)).toEqual(["two", "three", "one!"]);
     expect(blocks(b)).toEqual(blocks(a));
     expect(blocksOf(a.doc).length).toBe(3);
+  });
+});
+
+describe("edgeScroll", () => {
+  test("scrolls only near the edges, faster closer to them", () => {
+    expect(edgeScroll(400, 800)).toBe(0);
+    expect(edgeScroll(50, 800)).toBeLessThan(0);
+    expect(edgeScroll(0, 800)).toBeLessThan(edgeScroll(40, 800));
+    expect(edgeScroll(790, 800)).toBeGreaterThan(0);
+    expect(edgeScroll(800, 800)).toBeGreaterThan(edgeScroll(760, 800));
   });
 });

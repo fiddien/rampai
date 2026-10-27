@@ -54,38 +54,73 @@ function indexOfId(view: EditorView, id: string): number {
   return found;
 }
 
+/**
+ * How far to scroll per frame when a drag nears the top or bottom of the
+ * window, so a block can be carried past what is on screen. Zero away from the
+ * edges; faster the closer the pointer gets.
+ */
+export function edgeScroll(y: number, height: number, zone = 56, max = 18): number {
+  if (y < zone) return -Math.ceil(max * (1 - Math.max(y, 0) / zone));
+  if (y > height - zone) return Math.ceil(max * (1 - Math.max(height - y, 0) / zone));
+  return 0;
+}
+
 function handleFor(view: EditorView, id: string): HTMLElement {
   const handle = document.createElement("span");
   handle.className = "drag-handle";
   handle.contentEditable = "false";
-  handle.setAttribute("role", "button");
-  handle.setAttribute("aria-label", "Drag to move this block");
+  // A pointer-only shortcut: keyboard and screen-reader users move blocks with
+  // Alt+↑/↓, so the handle is hidden from assistive technology rather than
+  // announced as a control they cannot operate.
+  handle.setAttribute("aria-hidden", "true");
   handle.title = "Drag to move this block (or Alt+↑ / Alt+↓)";
 
   handle.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
-    const from = indexOfId(view, id);
-    if (from < 0) return;
+    // A finished piece is read-only.
+    if (!view.editable || indexOfId(view, id) < 0) return;
     event.preventDefault();
+
     const blocks = () => Array.from(view.dom.children) as HTMLElement[];
-    blocks()[from]?.classList.add("dragging");
-    let target = from;
-    const mark = () => {
+    // Indices are looked up by id every time they are used: another tab or
+    // device may add, remove or move blocks while this one is being dragged.
+    const from = () => indexOfId(view, id);
+    let y = event.clientY;
+    let target = from();
+    const place = () => {
+      const f = from();
+      if (f < 0) return;
+      target = dropIndex(blocks().map((el) => el.getBoundingClientRect()), y, f);
       blocks().forEach((el, i) => {
-        el.classList.toggle("drop-before", i === target && target < from);
-        el.classList.toggle("drop-after", i === target && target > from);
+        el.classList.toggle("dragging", i === f);
+        el.classList.toggle("drop-before", i === target && target < f);
+        el.classList.toggle("drop-after", i === target && target > f);
       });
     };
+    let frame = 0;
+    const scroll = () => {
+      const dy = edgeScroll(y, window.innerHeight);
+      if (dy !== 0) {
+        window.scrollBy(0, dy);
+        place();
+      }
+      frame = requestAnimationFrame(scroll);
+    };
     const move = (e: PointerEvent) => {
-      target = dropIndex(blocks().map((el) => el.getBoundingClientRect()), e.clientY, from);
-      mark();
+      y = e.clientY;
+      place();
     };
     const finish = (apply: boolean) => {
+      cancelAnimationFrame(frame);
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", up);
       document.removeEventListener("pointercancel", cancel);
       blocks().forEach((el) => el.classList.remove("dragging", "drop-before", "drop-after"));
-      if (apply) moveBlockTo(from, target)(view.state, view.dispatch, view);
+      if (apply) {
+        place();
+        const f = from();
+        if (f >= 0) moveBlockTo(f, target)(view.state, view.dispatch, view);
+      }
       view.focus();
     };
     const up = () => finish(true);
@@ -94,6 +129,8 @@ function handleFor(view: EditorView, id: string): HTMLElement {
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", up);
     document.addEventListener("pointercancel", cancel);
+    place();
+    frame = requestAnimationFrame(scroll);
   });
   return handle;
 }
