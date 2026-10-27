@@ -1,6 +1,6 @@
 import { scryptAsync } from "@noble/hashes/scrypt.js";
 import { exportKey, importKey } from "./crypto";
-import { normalize } from "./passphrase";
+import { normalize, resolveWord } from "./passphrase";
 
 /**
  * The key for a writer's devices comes from their passphrase with scrypt, a
@@ -13,7 +13,8 @@ const SALT = new TextEncoder().encode("rampai/v1/device-key");
 export const SCRYPT = { N: 2 ** 16, r: 8, p: 1, dkLen: 32 } as const;
 
 export async function deriveKey(words: string[] | string, params: { N: number } = SCRYPT): Promise<CryptoKey> {
-  const phrase = (typeof words === "string" ? normalize(words) : words).join(" ");
+  const list = typeof words === "string" ? normalize(words) : words;
+  const phrase = list.map((w) => resolveWord(w) ?? w).join(" ");
   const raw = await scryptAsync(new TextEncoder().encode(phrase), SALT, { ...SCRYPT, ...params });
   return crypto.subtle.importKey("raw", raw.slice(), { name: "AES-GCM" }, true, ["encrypt", "decrypt"]);
 }

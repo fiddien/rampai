@@ -34,9 +34,9 @@ describe("passphrase", () => {
     expect(checkPassphrase(good).ok).toBe(true);
     expect(checkPassphrase(good.toUpperCase()).ok).toBe(true);
     expect(checkPassphrase("abandon ability").problem).toMatch(/7 words long; you have entered 2/);
-    const typo = checkPassphrase(good.replace(/\S+$/, "notaword"));
+    const typo = checkPassphrase(good.replace(/\S+$/, "qxzword"));
     expect(typo.ok).toBe(false);
-    expect(typo.unknown).toEqual(["notaword"]);
+    expect(typo.unknown).toEqual(["qxzword"]);
   });
 
   test("confirmation asks for three distinct positions and accepts only the right words", () => {

@@ -72,6 +72,21 @@ export function autosave(
 }
 
 /**
+ * Whether this browser keeps what Rampai saves across a reload. It does not
+ * when storage is blocked (some privacy settings) or full.
+ */
+export function storagePersists(): boolean {
+  try {
+    const probe = "rampai:probe";
+    window.localStorage.setItem(probe, "1");
+    window.localStorage.removeItem(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Where the library and its index live. It is the browser's localStorage when
  * that works; when storage is blocked or full, values are kept in memory for
  * this visit so the app still opens and a new draft still appears.

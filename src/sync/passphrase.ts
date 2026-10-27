@@ -16,6 +16,19 @@ export function generatePassphrase(count = WORDS): string[] {
   return Array.from(draws, (n) => WORDLIST[n & 0x7ff]);
 }
 
+/** BIP-39 words are unique in their first four letters, so those letters are enough to know the word. */
+const BY_PREFIX = new Map(WORDLIST.map((w) => [w.slice(0, 4), w]));
+
+/**
+ * The listed word a typed word stands for: the word itself, or, for four
+ * letters or more, the one listed word that starts with the same four letters.
+ * This forgives typos and shortcuts after the fourth letter. Undefined if none.
+ */
+export function resolveWord(typed: string): string | undefined {
+  if (WORDLIST.includes(typed)) return typed;
+  return typed.length >= 4 ? BY_PREFIX.get(typed.slice(0, 4)) : undefined;
+}
+
 /** Lowercase, trim, and treat any run of spaces, commas or dashes as one separator. */
 export function normalize(input: string): string[] {
   return input
@@ -34,15 +47,16 @@ export interface PassphraseCheck {
 
 /** Say what is wrong with typed-in words, in a way that helps fix them. */
 export function checkPassphrase(input: string): PassphraseCheck {
-  const words = normalize(input);
-  const unknown = words.filter((w) => !WORDLIST.includes(w));
-  if (words.length !== WORDS) {
-    return { ok: false, words, unknown, problem: `Your recovery words are ${WORDS} words long; you have entered ${words.length}.` };
+  const typed = normalize(input);
+  const unknown = typed.filter((w) => !resolveWord(w));
+  if (typed.length !== WORDS) {
+    return { ok: false, words: typed, unknown, problem: `Your recovery words are ${WORDS} words long; you have entered ${typed.length}.` };
   }
   if (unknown.length > 0) {
-    return { ok: false, words, unknown, problem: `Not on the list: ${unknown.join(", ")}. Check the spelling.` };
+    return { ok: false, words: typed, unknown, problem: `Not on the list: ${unknown.join(", ")}. Check the spelling.` };
   }
-  return { ok: true, words, unknown };
+  // The key is always made from the listed words, however they were typed.
+  return { ok: true, words: typed.map((w) => resolveWord(w)!), unknown };
 }
 
 /** Which positions (0-based, ascending) to ask the writer to retype, to show the words were written down. */
@@ -53,5 +67,11 @@ export function confirmPositions(count = 3, total = WORDS): number[] {
 }
 
 export function confirmMatches(words: string[], positions: number[], answers: string[]): boolean {
-  return positions.length === answers.length && positions.every((p, i) => words[p] === normalize(answers[i])[0] && normalize(answers[i]).length === 1);
+  return (
+    positions.length === answers.length &&
+    positions.every((p, i) => {
+      const typed = normalize(answers[i]);
+      return typed.length === 1 && resolveWord(typed[0]) === words[p];
+    })
+  );
 }

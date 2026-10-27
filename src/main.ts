@@ -9,7 +9,7 @@ import { createDoc } from "./sync/model";
 import { connect } from "./sync/peer";
 import { BroadcastChannelTransport, MemoryLink, encrypted, type Transport } from "./sync/transport";
 import { generateKey } from "./sync/crypto";
-import { loadSnapshot, autosave, deviceStore } from "./sync/storage";
+import { loadSnapshot, autosave, deviceStore, storagePersists } from "./sync/storage";
 import { typedOnlyField } from "./ui/typedOnlyInput";
 import { welcomePage, recoveryPage, confirmPage, pairPage } from "./ui/onboarding";
 import { loadDeviceKey } from "./sync/keys";
@@ -330,7 +330,9 @@ function sessionStore(): Pick<Storage, "getItem" | "setItem" | "removeItem"> {
 
 async function route() {
   // Each page sets up its own replicas, so switching pages starts clean.
-  if (routed) {
+  // When this browser keeps nothing across a reload, the page is redrawn in
+  // place instead, so drafts kept in memory for this visit are not lost.
+  if (routed && storagePersists()) {
     location.reload();
     return;
   }
@@ -342,21 +344,29 @@ async function route() {
   const hash = location.hash;
   if (hash === "#two-devices") return void twoDevicesPage(root);
 
-  // Setting up devices is open to everyone, with or without a key.
+  // Setting up devices is open to everyone, with or without a key. A device
+  // that already has recovery words is warned before they are replaced.
+  const device = await loadDeviceKey(store);
   const session = sessionStore();
-  if (hash === "#/welcome") return welcomePage(root, store, session, go);
+  if (hash === "#/welcome") return welcomePage(root, store, session, go, device?.source);
   if (hash === "#/recovery") return recoveryPage(root, session, go);
   if (hash === "#/recovery/confirm") return confirmPage(root, store, session, go);
-  if (hash === "#/pair") return pairPage(root, store, go);
+  if (hash === "#/pair") return pairPage(root, store, go, device?.source);
 
-  // Everything else needs a key, so a first visit starts at the welcome.
-  const device = await loadDeviceKey(store);
-  if (!device) return go("#/welcome");
+  // Everything else needs a key, so a first visit starts at the welcome. When
+  // this browser keeps nothing across a reload, a key could never be kept, so
+  // the writer goes straight to writing (with a warning) instead of looping.
+  const persists = storagePersists();
+  if (!device && persists) return go("#/welcome");
 
   const draftId = /^#\/draft\/([\w-]+)$/.exec(hash)?.[1];
   if (draftId && getDraft(store, draftId)) return void writingPage(root, draftId);
   libraryPage(root, store, (newId) => go(`#/draft/${newId}`));
-  if (device.source === "random") {
+  if (!persists) {
+    const warn = el("p", "keys", "This browser is not keeping anything Rampai saves, so your drafts will be lost when you close this tab. Allow site storage for Rampai to keep them.");
+    warn.setAttribute("role", "alert");
+    root.append(warn);
+  } else if (device?.source === "random") {
     const note = el("p", "keys", 'This device is not linked to your others yet. <a href="#/welcome">Make recovery words</a> to link them.');
     root.append(note);
   }
