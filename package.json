@@ -11,6 +11,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@mantine/core": "^9.7.4",
+    "@mantine/hooks": "^9.7.4",
+    "@mantine/modals": "^9.7.4",
+    "@mantine/notifications": "^9.7.4",
     "@noble/hashes": "^2.4.0",
     "@scure/bip39": "^2.4.0",
     "loro-crdt": "^1.17.1",
@@ -20,10 +24,17 @@
     "prosemirror-keymap": "^1.2.3",
     "prosemirror-model": "^1.25.12",
     "prosemirror-state": "^1.4.4",
-    "prosemirror-view": "^1.42.8"
+    "prosemirror-view": "^1.42.8",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "jsdom": "^30.1.3",
     "loro-prosemirror": "^0.4.4",
     "prosemirror-schema-basic": "^1.2.5",

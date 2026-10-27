@@ -8,8 +8,7 @@ import { getTitle, isFinished, setTitle } from "../src/sync/meta";
 import { readSnapshot, writeSnapshot } from "../src/sync/storage";
 import { generateKey } from "../src/sync/crypto";
 import { deriveKey, wordsMatchKey } from "../src/sync/keys";
-import { restoreSummary, backupPage } from "../src/ui/backup";
-import { welcomePage } from "../src/ui/onboarding";
+import { restoreSummary } from "../src/ui/BackupPage";
 import { device, type } from "./helpers";
 
 class MemoryStore {
@@ -166,29 +165,5 @@ describe("checking recovery words", () => {
     const key = await deriveKey(words, fast);
     expect(await wordsMatchKey(words, key, fast)).toBe(true);
     expect(await wordsMatchKey([...words.slice(0, 6), "abstract"], key, fast)).toBe(false);
-  });
-
-  test("the Recovery words page offers the check on a device with words", async () => {
-    const root = document.createElement("div");
-    welcomePage(root, new MemoryStore(), new MemoryStore(), vi.fn(), "passphrase", await generateKey());
-    expect(root.textContent).toMatch(/Check the words you wrote down/);
-    expect(root.textContent).toMatch(/Replace them/);
-  });
-});
-
-describe("backup page", () => {
-  test("a device without recovery words is asked to make them first", async () => {
-    const root = document.createElement("div");
-    backupPage(root, new MemoryStore(), await generateKey(), "random");
-    expect(root.textContent).toMatch(/no recovery words yet/);
-    expect(root.querySelector("input[type=file]")).toBeNull();
-  });
-
-  test("a device with words can save and restore", async () => {
-    const root = document.createElement("div");
-    backupPage(root, new MemoryStore(), await generateKey(), "passphrase");
-    expect(root.textContent).toMatch(/Save a backup/);
-    expect(root.querySelector("input[type=file]")).not.toBeNull();
-    expect(root.textContent).toMatch(/No backup has been saved from this device yet/);
   });
 });

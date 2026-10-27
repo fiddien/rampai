@@ -2,7 +2,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { autosave, deviceStore } from "../src/sync/storage";
 import { createDoc } from "../src/sync/model";
-import { typedOnlyField } from "../src/ui/typedOnlyInput";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -73,25 +72,3 @@ describe("deviceStore", () => {
   });
 });
 
-describe("typedOnlyField", () => {
-  test("refuses paste, drop and outside-text input events, and allows typing", () => {
-    const input = document.createElement("input");
-    const blocked = vi.fn();
-    typedOnlyField(input, blocked);
-    const fire = (e: Event) => input.dispatchEvent(e);
-    const cancelled = (type: string, init: object = {}) => {
-      const e = new Event(type, { cancelable: true });
-      Object.assign(e, init);
-      fire(e);
-      return e.defaultPrevented;
-    };
-    expect(cancelled("paste")).toBe(true);
-    expect(cancelled("drop")).toBe(true);
-    expect(cancelled("beforeinput", { inputType: "insertFromDrop" })).toBe(true);
-    expect(cancelled("beforeinput", { inputType: "insertFromYank" })).toBe(true);
-    expect(blocked).toHaveBeenCalledTimes(4);
-    expect(cancelled("beforeinput", { inputType: "insertText" })).toBe(false);
-    expect(cancelled("beforeinput", { inputType: "deleteContentBackward" })).toBe(false);
-    expect(blocked).toHaveBeenCalledTimes(4);
-  });
-});

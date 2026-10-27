@@ -2,7 +2,9 @@
 import { describe, expect, test } from "vitest";
 import { EditorView } from "prosemirror-view";
 import { TextSelection } from "prosemirror-state";
-import { buildOutline } from "../src/ui/outline";
+import { act, fireEvent, screen } from "@testing-library/react";
+import { Outline } from "../src/ui/Outline";
+import { renderApp } from "./render";
 import { createEditorState, schema } from "../src/editor";
 import { newBlockId } from "../src/editor/blockIds";
 import { moveSection, sectionsOf, siblingOf } from "../src/editor/outline";
@@ -129,21 +131,20 @@ describe("outline edge cases and the panel", () => {
     expect(blocks(a)).toEqual(["intro", "B", "b1", "A", "a1", "A.1", "a1x", "A.2", "a2x"]);
   });
 
-  test("after pressing a move button focus returns to a button in the panel, and the move is announced", () => {
+  test("after pressing a move button focus returns to a button in the panel, and the move is announced", async () => {
     const v = draft();
-    document.body.append(v.dom.parentElement ?? document.body);
-    const panel = buildOutline(() => v);
-    document.body.append(panel.element);
-    panel.toggle();
-    const down = panel.element.querySelector<HTMLButtonElement>('button[data-section="0"][data-dir="1"]')!;
+    let tick = 0;
+    const { container, rerender } = renderApp(<Outline view={v} tick={tick} />);
+    const down = container.querySelector<HTMLButtonElement>('button[data-section="0"][data-dir="1"]')!;
     down.focus();
-    down.click();
-    expect(panel.element.contains(document.activeElement)).toBe(true);
-    expect(panel.element.querySelector('[role="status"]')!.textContent).toContain("Moved “A” down");
+    await act(async () => fireEvent.click(down));
+    rerender(<Outline view={v} tick={++tick} />);
+    expect(container.contains(document.activeElement)).toBe(true);
+    expect(screen.getByRole("status").textContent).toContain("Moved “A” down");
     expect(texts(v).slice(0, 3)).toEqual(["intro", "B", "b1"]);
     // Read-only draft: the move buttons are disabled.
     v.setProps({ editable: () => false });
-    panel.update();
-    expect(panel.element.querySelector<HTMLButtonElement>('button[data-dir="1"]')!.disabled).toBe(true);
+    rerender(<Outline view={v} tick={++tick} />);
+    expect(container.querySelector<HTMLButtonElement>('button[data-dir="1"]')!.disabled).toBe(true);
   });
 });

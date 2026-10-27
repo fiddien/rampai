@@ -32,9 +32,10 @@ npm run build      # static build in dist/
 ## Layout
 
 ```
+src/app/      React app frame: Mantine theme, providers, routes (no reloads)
+src/ui/       pages and panels, built from Mantine components
 src/editor/   ProseMirror schema, shortcuts, input rules, block ids, typed-only rule
-src/sync/     Loro model and binding, block-order planning, crypto, transports, storage
-src/ui/       toolbar
+src/sync/     Loro model and binding, block-order planning, crypto, transports, storage, backup
 test/         tests, including random concurrent sessions that must converge
 research/     experiments kept as evidence for design decisions
 docs/         architecture notes and what comes next
