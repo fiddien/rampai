@@ -9,6 +9,7 @@ This repository holds the first **tracer bullet**: a thin, working path through 
 - A block editor with Word-style shortcuts, Markdown-style shortcuts, and blocks that move with <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>.
 - A home screen of drafts saved on the device. Every new draft is titled "My first bad draft", and the title can be changed in place and syncs between devices.
 - Finishing a piece: say in one sentence what it claims and confirm a read-aloud; the piece is then listed as finished and read-only until reopened.
+- Recovery words: a seven-word passphrase makes the key that keeps drafts private. A second device types the words and gets the same key. Setup is skippable.
 - Outline mode (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>): headings only, and whole sections move with their text.
 - The typed-only rule (paste and drop from outside are refused).
 - A local-first document model on [Loro](https://loro.dev), where each block keeps its identity when it moves.
