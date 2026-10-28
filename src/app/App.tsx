@@ -11,7 +11,7 @@ import { cssVariables, theme } from "./theme";
 import { LibraryPage } from "../ui/LibraryPage";
 import { WritingPage } from "../ui/WritingPage";
 import { ConfirmPage, PairPage, RecoveryPage, WelcomePage } from "../ui/Onboarding";
-import { LinkPage } from "../ui/LinkPage";
+import { LinkPage, PENDING_LINK_CODE } from "../ui/LinkPage";
 import { BackupPage } from "../ui/BackupPage";
 import { TwoDevicesPage } from "../ui/TwoDevicesPage";
 
@@ -45,15 +45,21 @@ function Pages({ device, store }: { device: Device | undefined; store: Store }) 
   }
   // Everything else needs a key, so a first visit starts at the welcome. When this browser keeps
   // nothing, a key could never be kept, so the writer goes straight to writing, with a warning.
-  if (!device && persists) return <Redirect to="#/welcome" />;
+  if (!device && persists) {
+    // A link code scanned before this device was set up waits for it.
+    if (route.page === "link" && route.code) sessionStore().setItem(PENDING_LINK_CODE, route.code);
+    return <Redirect to="#/welcome" />;
+  }
   switch (route.page) {
     case "link":
-      return device ? <LinkPage /> : <Redirect to="#/" />;
+      return device ? <LinkPage code={route.code} /> : <Redirect to="#/" />;
     case "backup":
       return device ? <BackupPage /> : <Redirect to="#/" />;
     case "draft":
       return route.id && getDraft(store, route.id) ? <WritingPage key={route.id} id={route.id} /> : <LibraryPage />;
     default:
+      // A link code scanned before this device was set up: go on to linking now that it is.
+      if (device?.source === "passphrase" && sessionStore().getItem(PENDING_LINK_CODE)) return <Redirect to="#/link" />;
       return <LibraryPage />;
   }
 }

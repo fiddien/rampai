@@ -21,7 +21,7 @@ export type Route =
   | { page: "recovery" }
   | { page: "confirm" }
   | { page: "pair" }
-  | { page: "link" }
+  | { page: "link"; code?: string }
   | { page: "backup" }
   | { page: "draft"; id: string }
   | { page: "drafts" };
@@ -33,6 +33,15 @@ export function parseRoute(hash: string): Route {
   if (hash === "#/recovery/confirm") return { page: "confirm" };
   if (hash === "#/pair") return { page: "pair" };
   if (hash === "#/link") return { page: "link" };
+  // A link scanned from another device's QR code carries its code.
+  const code = /^#\/link\?code=([\w.:~!*%-]+)$/.exec(hash)?.[1];
+  if (code) {
+    try {
+      return { page: "link", code: decodeURIComponent(code) };
+    } catch {
+      return { page: "link" };
+    }
+  }
   if (hash === "#/backup") return { page: "backup" };
   const id = /^#\/draft\/([\w-]+)$/.exec(hash)?.[1];
   if (id) return { page: "draft", id };
