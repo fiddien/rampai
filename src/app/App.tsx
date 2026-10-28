@@ -13,7 +13,6 @@ import { WritingPage } from "../ui/WritingPage";
 import { ConfirmPage, PairPage, RecoveryPage, WelcomePage } from "../ui/Onboarding";
 import { LinkPage, PENDING_LINK_CODE } from "../ui/LinkPage";
 import { BackupPage } from "../ui/BackupPage";
-import { TwoDevicesPage } from "../ui/TwoDevicesPage";
 
 function Redirect({ to }: { to: string }) {
   useEffect(() => go(to), [to]);
@@ -31,8 +30,6 @@ function Pages({ device, store }: { device: Device | undefined; store: Store }) 
   }, [hash]);
 
   switch (route.page) {
-    case "two-devices":
-      return <TwoDevicesPage />;
     // Setting up devices is open to everyone, with or without a key.
     case "welcome":
       return <WelcomePage />;

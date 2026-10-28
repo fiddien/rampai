@@ -16,7 +16,6 @@ export const go = (hash: string) => {
 };
 
 export type Route =
-  | { page: "two-devices" }
   | { page: "welcome" }
   | { page: "recovery" }
   | { page: "confirm" }
@@ -27,7 +26,6 @@ export type Route =
   | { page: "drafts" };
 
 export function parseRoute(hash: string): Route {
-  if (hash === "#two-devices") return { page: "two-devices" };
   if (hash === "#/welcome") return { page: "welcome" };
   if (hash === "#/recovery") return { page: "recovery" };
   if (hash === "#/recovery/confirm") return { page: "confirm" };

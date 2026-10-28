@@ -6,7 +6,7 @@ import { seal, open } from "./crypto";
  * pieces the web build can use today:
  *
  * - BroadcastChannelTransport: tabs of the same browser on one device.
- * - MemoryLink: two simulated devices in one page, with an online switch.
+ * - MemoryLink: two endpoints in one page, with an online switch (for tests).
  *
  * The native app will add a same-network transport behind the same interface.
  */

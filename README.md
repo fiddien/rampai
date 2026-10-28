@@ -18,13 +18,13 @@ This repository holds the first **tracer bullet**: a thin, working path through 
 - The typed-only rule (paste and drop from outside are refused).
 - A local-first document model on [Loro](https://loro.dev), where each block keeps its identity when it moves.
 - AES-GCM encryption of every update that leaves a device.
-- Sync between tabs of one browser, and a simulated two-device page (`#two-devices`) with an on/off network switch.
+- Sync between tabs of one browser.
 
 ## Run it
 
 ```sh
 npm install
-npm run dev        # http://localhost:5173 (the drafts home), and /#two-devices for the sync demo
+npm run dev        # http://localhost:5173 (the drafts home)
 npm test           # unit, property, and concurrency tests
 npm run build      # static build in dist/
 ```
