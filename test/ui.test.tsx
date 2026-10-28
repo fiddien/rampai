@@ -196,3 +196,37 @@ describe("typed-only fields", () => {
     expect(blocked).toHaveBeenCalledTimes(3);
   });
 });
+
+describe("recovery words page", () => {
+  const words = "abandon ability able about above absent absorb".split(" ");
+
+  test("offers to copy the words or download them, numbered, with a warning in the file", async () => {
+    const { RecoveryPage, wordsAsText, wordsFile } = await import("../src/ui/Onboarding");
+    const session = new MemoryStore();
+    session.setItem("rampai:pending-words", JSON.stringify(words));
+    renderApp(<RecoveryPage />, { session });
+    expect(screen.getByRole("button", { name: "Copy the words" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download as a text file" })).toBeTruthy();
+    expect(wordsAsText(words).split("\n")).toEqual(words.map((w, i) => `${i + 1}. ${w}`));
+    const file = wordsFile(words);
+    expect(file).toContain("7. absorb");
+    expect(file).toMatch(/delete this file/);
+  });
+
+  test("the download saves a text file named for Rampai", async () => {
+    const { RecoveryPage } = await import("../src/ui/Onboarding");
+    const session = new MemoryStore();
+    session.setItem("rampai:pending-words", JSON.stringify(words));
+    const created = vi.fn(() => "blob:words");
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() });
+    let downloaded = "";
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      downloaded = this.download;
+    });
+    renderApp(<RecoveryPage />, { session });
+    fireEvent.click(screen.getByRole("button", { name: "Download as a text file" }));
+    expect(downloaded).toBe("rampai-recovery-words.txt");
+    expect(created).toHaveBeenCalledOnce();
+    click.mockRestore();
+  });
+});

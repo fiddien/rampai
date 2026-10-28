@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Button, Group, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Button, CopyButton, Group, Stack, Text, TextInput, Title } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { generateKey } from "../sync/crypto";
 import { deriveKey, saveDeviceKey, wordsMatchKey, type KeySource } from "../sync/keys";
@@ -192,6 +192,35 @@ export function WelcomePage() {
   );
 }
 
+/** The words as plain text, numbered, for the clipboard or a file. */
+export function wordsAsText(words: string[]): string {
+  return words.map((w, i) => `${i + 1}. ${w}`).join("\n");
+}
+
+/** A small text file with the words, so they can go to a password manager or a printer. */
+export function wordsFile(words: string[]): string {
+  return [
+    "Rampai recovery words",
+    "",
+    wordsAsText(words),
+    "",
+    "Anyone who has these words can read your drafts.",
+    "Keep them in a password manager or on paper, then delete this file.",
+    "",
+  ].join("\n");
+}
+
+function downloadText(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export function RecoveryPage() {
   const { session, device, go } = useApp();
   const words = pendingWords(session);
@@ -203,8 +232,23 @@ export function RecoveryPage() {
           <li key={i}>{w}</li>
         ))}
       </ol>
+      <Group gap="xs">
+        <CopyButton value={wordsAsText(words)} timeout={2500}>
+          {({ copied, copy }) => (
+            <Button variant="default" size="xs" onClick={copy}>
+              {copied ? "Copied" : "Copy the words"}
+            </Button>
+          )}
+        </CopyButton>
+        <Button variant="default" size="xs" onClick={() => downloadText("rampai-recovery-words.txt", wordsFile(words))}>
+          Download as a text file
+        </Button>
+      </Group>
       <p>Write these seven words down, in this order, and keep them somewhere safe. Rampai cannot show them again or recover them for you.</p>
-      <Text className="soft">Anyone who has them can read your drafts. Do not store them with your devices.</Text>
+      <Text className="soft">
+        Anyone who has them can read your drafts. If you copy or download them, put them in a password manager or print them, then delete the file and clear the
+        clipboard: a copy left on this device sits right beside the drafts it unlocks.
+      </Text>
       <Group className="actions">
         <Button onClick={() => go("#/recovery/confirm")}>I wrote them down</Button>
       </Group>
