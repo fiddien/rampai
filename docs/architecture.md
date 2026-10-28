@@ -49,7 +49,7 @@ The protocol (`src/sync/peer.ts`) has two messages. `UPDATE` carries a Loro upda
 Transports (`src/sync/transport.ts`) move opaque bytes:
 
 - `BroadcastChannelTransport` syncs tabs of one browser.
-- `MemoryLink` joins two simulated devices on one page, with an online switch that queues messages while offline.
+- `MemoryLink` joins two endpoints in one page, with an online switch that queues messages while offline; the tests use it to stand in for two devices.
 
 Drafts are saved on the device as Loro snapshots (`src/sync/storage.ts`, localStorage for now), one per draft id. A draft's title lives in a `meta` map in its own document (`src/sync/meta.ts`), so it syncs; `src/sync/library.ts` keeps a small index of titles, word counts and edit times, only to draw the home screen. The index is a cache; the documents are the truth. The single draft of the first version is adopted into the library once.
 

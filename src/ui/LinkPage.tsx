@@ -239,9 +239,6 @@ export function LinkPage({ code }: { code?: string }) {
             <p className="link-status" role="status">
               {message || status.text}
             </p>
-            <Text className="soft">
-              Want to see how it works first? <Anchor href="#two-devices">Watch two simulated devices sync</Anchor>.
-            </Text>
           </>
         )}
       </main>

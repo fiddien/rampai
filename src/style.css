@@ -115,29 +115,6 @@ body.typing .chrome:hover, body.typing .chrome:focus-within { opacity: 1; }
   border-radius: 3px; padding: 0 4px; color: var(--ink);
 }
 
-/* Two devices demo */
-.duo { max-width: 72rem; margin: 0 auto; }
-.duo-intro { max-width: 44rem; margin: 24px auto 8px; color: var(--soft); font-size: 13px; }
-.duo-intro p { margin: 0 0 8px; }
-.duo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px; }
-@media (max-width: 760px) { .duo-grid { grid-template-columns: 1fr; } }
-.device {
-  border: 1px solid var(--faint); border-radius: 10px; padding: 14px 20px 20px;
-  min-width: 0;
-}
-.device-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--soft); margin-bottom: 8px; }
-.device-head b { color: var(--ink); font-weight: 500; }
-.device-head .tools { margin-left: auto; display: flex; gap: 2px; }
-.device .ProseMirror { min-height: 16rem; font-size: 1.125rem; }
-.network {
-  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
-  background: none; border: 1px solid var(--faint); border-radius: 999px; padding: 4px 12px 4px 8px;
-  font-size: 13px;
-}
-.network .dot { width: 8px; height: 8px; border-radius: 50%; background: #3a9a6a; }
-.network[aria-pressed="false"] .dot { background: var(--soft); }
-.wire { font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--soft); overflow-wrap: anywhere; margin-top: 10px; min-height: 2.8em; }
-
 a { color: var(--accent); text-underline-offset: 2px; }
 .brand, .brand:visited { color: var(--soft); }
 
