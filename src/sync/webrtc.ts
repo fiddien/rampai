@@ -1,4 +1,5 @@
 import type { Transport } from "./transport";
+import { compactSdp, expandSdp } from "./compactSdp";
 
 /**
  * A direct connection between two browsers, with no server. The two devices
@@ -35,8 +36,14 @@ async function pipe(bytes: Uint8Array, stream: CompressionStream | Decompression
   return new Uint8Array(await out.arrayBuffer());
 }
 
-/** A code is the session description, deflated and written in URL-safe characters. */
+/**
+ * A code is the session description. Usually only its varying parts are sent
+ * (`rampai2.`, about a quarter of the size, for a small QR code); a description
+ * that does not fit that form is sent whole, deflated (`rampai1.`).
+ */
 export async function encodeSignal(signal: Signal): Promise<string> {
+  const short = compactSdp(signal.s);
+  if (short) return `rampai2.${signal.t === "offer" ? "o" : "a"}~${short}`;
   const raw = new TextEncoder().encode(JSON.stringify(signal));
   if (typeof CompressionStream === "undefined") return `rampai0.${b64.encode(raw)}`;
   return `rampai1.${b64.encode(await pipe(raw, new CompressionStream("deflate-raw")))}`;
@@ -44,8 +51,15 @@ export async function encodeSignal(signal: Signal): Promise<string> {
 
 export async function decodeSignal(code: string, expect: Signal["t"]): Promise<Signal> {
   const text = code.trim().replace(/\s+/g, "");
-  const [tag, body] = text.split(".");
+  const dot = text.indexOf(".");
+  const tag = text.slice(0, dot);
+  const body = text.slice(dot + 1);
   try {
+    if (tag === "rampai2") {
+      const kind = body.startsWith("o~") ? "offer" : body.startsWith("a~") ? "answer" : undefined;
+      if (kind !== expect) throw new Error("wrong kind");
+      return { t: kind, s: expandSdp(body.slice(2)) };
+    }
     if ((tag !== "rampai0" && tag !== "rampai1") || !body) throw new Error("not a code");
     const bytes = b64.decode(body);
     const raw = tag === "rampai1" ? await pipe(bytes, new DecompressionStream("deflate-raw")) : bytes;

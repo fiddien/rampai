@@ -254,3 +254,8 @@ body.finished .ProseMirror { color: var(--soft); }
 /* Linked to another device: a green dot in the bar, a quiet word beside the count. */
 .nav-dot.linked { background: #3a9a6a; }
 .count.linked::before { content: "● "; color: #3a9a6a; }
+
+/* QR codes for linking: always dark on white, framed, centred on narrow screens. */
+.qr { display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--faint); }
+.qr-video { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #000; border-radius: 8px; }
+.qr-pair { display: grid; gap: 10px; justify-items: start; }

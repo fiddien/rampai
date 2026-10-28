@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Anchor, Button, CopyButton, Group, Text, Textarea } from "@mantine/core";
 import { joinLink, startLink, type DeviceLink } from "../sync/webrtc";
 import { startSession, useLinkSession, useLinkStatus, type LinkSession } from "../app/linkSession";
 import { useApp } from "../app/context";
 import { NavBar } from "./Nav";
+import { QrCode } from "./Qr";
+import { QrScanner } from "./QrScanner";
+import { codeFromText, linkUrl } from "../sync/linkCodes";
+
+/** A code that arrived in a scanned link before this device was set up, kept for after. */
+export const PENDING_LINK_CODE = "rampai:pending-link-code";
 
 type Step = { kind: "choose" } | { kind: "offer"; offer: string; accept(answer: string): Promise<DeviceLink> } | { kind: "join"; answer?: string } | { kind: "linked" };
 
@@ -38,14 +44,15 @@ function Copy({ value }: { value: string }) {
 }
 
 /**
- * Link two devices that have the same recovery words. One shows a code, the
- * other pastes it and shows an answer, and the answer is pasted back. Then the
+ * Link two devices that have the same recovery words. One shows a code, as a
+ * QR code and as text; the other scans it (with its own camera app, or here)
+ * or pastes it, and shows an answer the same way, which goes back. Then the
  * two exchange their libraries over a direct connection, sealed with the key,
  * and stay linked while the app is open on both: drafts open on either side
  * receive the other's edits as they are typed.
  */
-export function LinkPage() {
-  const { store, device } = useApp();
+export function LinkPage({ code }: { code?: string }) {
+  const { store, device, session: tabSession } = useApp();
   const current = useLinkSession();
   // The session this page started stays on screen after it ends, to say how it ended.
   const [mine, setMine] = useState<LinkSession | null>(null);
@@ -56,15 +63,74 @@ export function LinkPage() {
   const [answerIn, setAnswerIn] = useState("");
   const [offerIn, setOfferIn] = useState("");
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState<"offer" | "answer" | null>(null);
 
-  if (!device) return null;
-  const key = device.key;
+  const key = device?.key;
   const fail = (e: unknown) => setMessage(e instanceof Error ? e.message : "Something went wrong. Try again.");
   const linked = (link: DeviceLink) => {
+    if (!key) return;
     setMine(startSession(store, key, link));
     setStep({ kind: "linked" });
     setMessage("");
   };
+
+  async function show() {
+    setBusy(true);
+    setMessage("Making a code…");
+    try {
+      const started = await startLink();
+      setStep({ kind: "offer", offer: started.offer, accept: started.accept });
+      setMessage("Waiting for the other device's answer.");
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function join(offer: string) {
+    setStep({ kind: "join" });
+    setOfferIn(offer);
+    setBusy(true);
+    setMessage("Making an answer code…");
+    try {
+      const joined = await joinLink(offer);
+      setStep({ kind: "join", answer: joined.answer });
+      setMessage("Waiting for the other device to connect…");
+      setBusy(false);
+      linked(await joined.connected);
+    } catch (e) {
+      fail(e);
+      setBusy(false);
+    }
+  }
+
+  async function accept(answer: string, offerStep: Extract<Step, { kind: "offer" }>) {
+    setBusy(true);
+    setMessage("Connecting…");
+    try {
+      linked(await offerStep.accept(answer));
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // A code that arrived in the address (scanned with the phone's camera app) starts the answer at once.
+  const usedCode = useRef(false);
+  useEffect(() => {
+    if (usedCode.current || !device || device.source !== "passphrase") return;
+    const arrived = code ?? tabSession.getItem(PENDING_LINK_CODE) ?? undefined;
+    if (!arrived) return;
+    usedCode.current = true;
+    tabSession.removeItem(PENDING_LINK_CODE);
+    // The code has done its work; keep it out of the address bar and the history.
+    history.replaceState(history.state, "", `${location.pathname}${location.search}#/link`);
+    void join(arrived);
+  }, [code, device]);
+
+  if (!device) return null;
   const isLinked = !!current && status.state === "linked";
 
   return (
@@ -101,80 +167,72 @@ export function LinkPage() {
             )}
             {!isLinked && (step.kind === "choose" || step.kind === "linked") && (
               <Group className="actions">
-                <Button
-                  loading={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    setMessage("Making a code…");
-                    try {
-                      const started = await startLink();
-                      setStep({ kind: "offer", offer: started.offer, accept: started.accept });
-                      setMessage("Waiting for the answer code.");
-                    } catch (e) {
-                      fail(e);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
+                <Button loading={busy} onClick={show}>
                   Show a code on this device
                 </Button>
                 <Button variant="default" onClick={() => setStep({ kind: "join" })}>
-                  Enter a code from the other device
+                  Scan or enter a code from the other device
                 </Button>
               </Group>
             )}
             {!isLinked && step.kind === "offer" && (
               <div className="link-steps">
-                <CodeBox label="1. Copy this code to the other device" value={step.offer} readOnly />
-                <Copy value={step.offer} />
-                <CodeBox label="2. Paste the answer code from the other device" value={answerIn} onChange={setAnswerIn} />
-                <Button
-                  loading={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    setMessage("Connecting…");
-                    try {
-                      linked(await step.accept(answerIn));
-                    } catch (e) {
-                      fail(e);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
+                <div className="qr-pair">
+                  <Text fw={500}>1. Scan this with the other device</Text>
+                  <QrCode value={linkUrl(step.offer)} label="Link code for the other device" />
+                  <Text c="dimmed">Its camera app opens Rampai with the code filled in. No camera? Copy the code instead.</Text>
+                  <Copy value={step.offer} />
+                </div>
+                <Text fw={500} mt="md">
+                  2. Then bring its answer back here
+                </Text>
+                <Button variant="default" onClick={() => setScanning("answer")}>
+                  Scan the answer
+                </Button>
+                <CodeBox label="Or paste the answer code" value={answerIn} onChange={setAnswerIn} />
+                <Button loading={busy} disabled={!codeFromText(answerIn)} onClick={() => accept(codeFromText(answerIn)!, step)}>
                   Connect
                 </Button>
+                <QrScanner
+                  opened={scanning === "answer"}
+                  title="Scan the answer"
+                  onClose={() => setScanning(null)}
+                  onCode={(answer) => {
+                    setScanning(null);
+                    setAnswerIn(answer);
+                    void accept(answer, step);
+                  }}
+                />
               </div>
             )}
             {!isLinked && step.kind === "join" && (
               <div className="link-steps">
-                <CodeBox label="1. Paste the code from the other device" value={offerIn} onChange={setOfferIn} readOnly={!!step.answer} />
                 {!step.answer ? (
-                  <Button
-                    loading={busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      setMessage("Making an answer code…");
-                      try {
-                        const joined = await joinLink(offerIn);
-                        setStep({ kind: "join", answer: joined.answer });
-                        setMessage("Waiting for the other device to connect…");
-                        setBusy(false);
-                        linked(await joined.connected);
-                      } catch (e) {
-                        fail(e);
-                        setBusy(false);
-                      }
-                    }}
-                  >
-                    Make an answer code
-                  </Button>
-                ) : (
                   <>
-                    <CodeBox label="2. Copy this answer code back to the other device" value={step.answer} readOnly />
-                    <Copy value={step.answer} />
+                    <Button variant="default" onClick={() => setScanning("offer")}>
+                      Scan the other device's code
+                    </Button>
+                    <CodeBox label="Or paste the code from the other device" value={offerIn} onChange={setOfferIn} />
+                    <Button loading={busy} disabled={!codeFromText(offerIn)} onClick={() => join(codeFromText(offerIn)!)}>
+                      Make an answer code
+                    </Button>
+                    <QrScanner
+                      opened={scanning === "offer"}
+                      title="Scan the other device's code"
+                      onClose={() => setScanning(null)}
+                      onCode={(offer) => {
+                        setScanning(null);
+                        void join(offer);
+                      }}
+                    />
                   </>
+                ) : (
+                  <div className="qr-pair">
+                    <Text fw={500}>Show this answer to the other device</Text>
+                    <QrCode value={step.answer} label="Answer code for the other device" />
+                    <Text c="dimmed">On the other device, choose "Scan the answer". No camera? Copy the code instead.</Text>
+                    <Copy value={step.answer} />
+                  </div>
                 )}
               </div>
             )}
