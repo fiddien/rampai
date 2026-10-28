@@ -230,3 +230,14 @@ describe("recovery words page", () => {
     click.mockRestore();
   });
 });
+
+describe("theme", () => {
+  test("the main button is ink on paper in both schemes, so its text always shows", async () => {
+    const { cssVariables, theme } = await import("../src/app/theme");
+    const vars = cssVariables(theme as never);
+    for (const scheme of [vars.light, vars.dark]) {
+      expect(scheme["--mantine-primary-color-filled"]).toBe("var(--ink)");
+      expect(scheme["--mantine-primary-color-contrast"]).toBe("var(--bg)");
+    }
+  });
+});
